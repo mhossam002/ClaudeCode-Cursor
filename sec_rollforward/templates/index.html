@@ -1,0 +1,908 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SEC 10-Q Roll-Forward Tool</title>
+  <style>
+    /* ── Reset & base ─────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:          #0d1117;
+      --surface:     #161b22;
+      --surface2:    #21262d;
+      --border:      #30363d;
+      --accent:      #238636;
+      --accent-hover:#2ea043;
+      --accent-blue: #1f6feb;
+      --accent-blue-h:#388bfd;
+      --text:        #e6edf3;
+      --text-muted:  #8b949e;
+      --warning:     #d29922;
+      --danger:      #f85149;
+      --success:     #3fb950;
+      --yellow-hl:   #f0b429;
+      --radius:      8px;
+      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace;
+    }
+    html { font-size: 15px; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      min-height: 100vh;
+      padding: 2rem 1rem;
+    }
+
+    /* ── Layout ───────────────────────────────────────────────────────── */
+    .container { max-width: 860px; margin: 0 auto; }
+
+    header {
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 1.25rem;
+      margin-bottom: 2rem;
+    }
+    header h1 { font-size: 1.4rem; font-weight: 600; }
+    header p { color: var(--text-muted); margin-top: 0.3rem; font-size: 0.9rem; }
+
+    /* ── Step progress bar ────────────────────────────────────────────── */
+    .steps {
+      display: flex;
+      gap: 0;
+      margin-bottom: 2rem;
+    }
+    .step-item {
+      flex: 1;
+      text-align: center;
+      padding: 0.6rem 0.5rem;
+      font-size: 0.82rem;
+      font-weight: 500;
+      border-bottom: 3px solid var(--border);
+      color: var(--text-muted);
+      cursor: default;
+      transition: border-color 0.2s, color 0.2s;
+    }
+    .step-item.active  { border-color: var(--accent-blue); color: var(--text); }
+    .step-item.done    { border-color: var(--success); color: var(--success); }
+
+    /* ── Cards ────────────────────────────────────────────────────────── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+      margin-bottom: 1.25rem;
+    }
+    .card h2 { font-size: 1rem; font-weight: 600; margin-bottom: 1rem; }
+    .card.hidden { display: none; }
+
+    /* ── Form elements ────────────────────────────────────────────────── */
+    label { display: block; font-size: 0.82rem; color: var(--text-muted); margin-bottom: 0.3rem; margin-top: 0.9rem; }
+    label:first-child { margin-top: 0; }
+    input[type="text"], input[type="email"], input[type="file"] {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      padding: 0.5rem 0.75rem;
+      font-size: 0.9rem;
+      font-family: var(--font);
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    input[type="text"]:focus, input[type="email"]:focus {
+      border-color: var(--accent-blue);
+    }
+    input[type="file"] { cursor: pointer; padding: 0.4rem; }
+
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-top: 1rem;
+    }
+    /* Toggle switch */
+    .toggle { position: relative; display: inline-block; width: 40px; height: 22px; flex-shrink: 0; }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .slider {
+      position: absolute; cursor: pointer; inset: 0;
+      background: var(--border); border-radius: 22px;
+      transition: background 0.2s;
+    }
+    .slider::before {
+      content: ""; position: absolute;
+      height: 16px; width: 16px; left: 3px; bottom: 3px;
+      background: #fff; border-radius: 50%;
+      transition: transform 0.2s;
+    }
+    .toggle input:checked + .slider { background: var(--accent-blue); }
+    .toggle input:checked + .slider::before { transform: translateX(18px); }
+    .toggle-label { font-size: 0.88rem; }
+    .toggle-hint { font-size: 0.78rem; color: var(--text-muted); }
+
+    /* ── Buttons ──────────────────────────────────────────────────────── */
+    .btn {
+      display: inline-flex; align-items: center; gap: 0.4rem;
+      padding: 0.5rem 1.1rem;
+      border: none; border-radius: 6px;
+      font-size: 0.88rem; font-weight: 500; font-family: var(--font);
+      cursor: pointer; transition: background 0.15s, opacity 0.15s;
+    }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-blue { background: var(--accent-blue); color: #fff; }
+    .btn-blue:hover { background: var(--accent-blue-h); }
+    .btn-outline {
+      background: transparent; color: var(--text-muted);
+      border: 1px solid var(--border);
+    }
+    .btn-outline:hover { border-color: var(--text-muted); color: var(--text); }
+    .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+    .btn-row { display: flex; gap: 0.75rem; margin-top: 1.25rem; flex-wrap: wrap; }
+
+    /* ── Status / alerts ──────────────────────────────────────────────── */
+    .alert {
+      padding: 0.7rem 1rem;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      margin-top: 0.75rem;
+      display: none;
+    }
+    .alert.show { display: block; }
+    .alert-info    { background: #1c2d3e; border: 1px solid var(--accent-blue); color: #58a6ff; }
+    .alert-success { background: #0d2b1b; border: 1px solid var(--success); color: var(--success); }
+    .alert-warning { background: #2d1f03; border: 1px solid var(--warning); color: var(--warning); }
+    .alert-danger  { background: #2d0d0d; border: 1px solid var(--danger); color: var(--danger); }
+
+    /* ── Spinner ──────────────────────────────────────────────────────── */
+    .spinner {
+      display: inline-block; width: 16px; height: 16px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Table map preview ────────────────────────────────────────────── */
+    .table-map-wrap {
+      max-height: 300px; overflow-y: auto;
+      border: 1px solid var(--border); border-radius: 6px;
+      margin-top: 0.75rem;
+      font-size: 0.78rem;
+    }
+    .table-map-wrap table {
+      width: 100%; border-collapse: collapse;
+    }
+    .table-map-wrap th, .table-map-wrap td {
+      padding: 0.4rem 0.65rem;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+      vertical-align: top;
+    }
+    .table-map-wrap th {
+      background: var(--surface2);
+      color: var(--text-muted);
+      font-weight: 600;
+      position: sticky; top: 0;
+    }
+    .table-map-wrap tr:last-child td { border-bottom: none; }
+    .idx-badge {
+      display: inline-block; padding: 0.1rem 0.45rem;
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 4px; font-weight: 600; color: var(--accent-blue-h);
+    }
+
+    /* ── EDGAR preview ────────────────────────────────────────────────── */
+    .edgar-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.5rem 1rem;
+      font-size: 0.82rem;
+      margin-top: 0.5rem;
+      max-height: 250px; overflow-y: auto;
+    }
+    .edgar-fact { display: flex; justify-content: space-between; gap: 0.5rem; }
+    .edgar-concept { color: var(--text-muted); }
+    .edgar-val { font-family: monospace; font-weight: 600; }
+
+    /* ── Stats ────────────────────────────────────────────────────────── */
+    .stat-grid {
+      display: grid; grid-template-columns: repeat(2, 1fr);
+      gap: 0.75rem; margin-top: 0.75rem;
+    }
+    @media (min-width: 540px) {
+      .stat-grid { grid-template-columns: repeat(4, 1fr); }
+    }
+    .stat-box {
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 6px; padding: 0.75rem 1rem; text-align: center;
+    }
+    .stat-num { font-size: 1.6rem; font-weight: 700; line-height: 1; }
+    .stat-lbl { font-size: 0.72rem; color: var(--text-muted); margin-top: 0.25rem; }
+
+    /* ── Checklist ────────────────────────────────────────────────────── */
+    .checklist { list-style: none; margin-top: 0.5rem; }
+    .checklist li {
+      display: flex; align-items: flex-start; gap: 0.5rem;
+      padding: 0.35rem 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.85rem;
+    }
+    .checklist li:last-child { border-bottom: none; }
+    .checklist li input[type="checkbox"] { margin-top: 2px; accent-color: var(--accent); }
+    .hl-note {
+      background: #2d2200; border: 1px solid var(--warning);
+      border-radius: 6px; padding: 0.6rem 0.9rem;
+      font-size: 0.83rem; color: var(--warning);
+      margin-top: 0.75rem;
+    }
+
+    /* ── Verification badges ──────────────────────────────────────────── */
+    .vbadge {
+      display: inline-flex; align-items: center; gap: 0.35rem;
+      padding: 0.2rem 0.55rem; border-radius: 4px; font-size: 0.78rem; font-weight: 500;
+    }
+    .vbadge.pass { background: #0d2b1b; color: var(--success); border: 1px solid var(--success); }
+    .vbadge.fail { background: #2d0d0d; color: var(--danger);  border: 1px solid var(--danger);  }
+    .vbadge.warn { background: #2d1f03; color: var(--warning); border: 1px solid var(--warning); }
+    .v-row { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.5rem; }
+
+    /* ── Missing facts list ───────────────────────────────────────────── */
+    .missing-list {
+      font-size: 0.78rem; font-family: monospace;
+      color: var(--warning); margin-top: 0.5rem;
+      max-height: 120px; overflow-y: auto;
+    }
+    .missing-list div { padding: 0.15rem 0; }
+
+    /* ── Warnings list ────────────────────────────────────────────────── */
+    .warn-list { margin-top: 0.5rem; }
+    .warn-list div {
+      font-size: 0.8rem; color: var(--warning);
+      padding: 0.2rem 0; border-bottom: 1px solid var(--border);
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <h1>SEC 10-Q Roll-Forward Tool</h1>
+    <p>Daily Journal Corporation (DJCO) &mdash; Q1 FY2026 &rarr; Q2 FY2026</p>
+  </header>
+
+  <!-- Step progress bar -->
+  <nav class="steps">
+    <div class="step-item active" id="step-nav-1">1 &mdash; Upload</div>
+    <div class="step-item"       id="step-nav-2">2 &mdash; Configure</div>
+    <div class="step-item"       id="step-nav-3">3 &mdash; Generate</div>
+  </nav>
+
+  <!-- ════════════════════════════════════════════════════════════════
+       STEP 1 — Upload
+  ═════════════════════════════════════════════════════════════════ -->
+  <section id="step-1">
+    <div class="card">
+      <h2>Upload Source Document</h2>
+      <label for="file-input">Select Q1 10-Q draft (.docx)</label>
+      <input type="file" id="file-input" accept=".docx" />
+      <div class="btn-row">
+        <button class="btn btn-blue" id="btn-upload">
+          <span class="spinner" id="upload-spinner" style="display:none"></span>
+          Upload &amp; Inspect
+        </button>
+      </div>
+      <div class="alert alert-danger" id="upload-error"></div>
+      <div class="alert alert-success" id="upload-success"></div>
+    </div>
+
+    <!-- Table map preview (shown after upload) -->
+    <div class="card hidden" id="table-map-card">
+      <h2>Detected Tables</h2>
+      <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:0.5rem">
+        Verify these 0-based indices match the expected table layout before proceeding.
+        Key tables: Balance Sheet (3), Income Statement (4), Cash Flow (6).
+      </p>
+      <div class="table-map-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Index</th>
+              <th>Size</th>
+              <th>Header Rows</th>
+            </tr>
+          </thead>
+          <tbody id="table-map-body"></tbody>
+        </table>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-primary" id="btn-to-step2">Continue to Configure &rarr;</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════════════════════════════
+       STEP 2 — Configure
+  ═════════════════════════════════════════════════════════════════ -->
+  <section id="step-2" class="hidden">
+
+    <!-- EDGAR identity + auto-detect ──────────────────────────────── -->
+    <div class="card">
+      <h2>EDGAR Identity</h2>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 1.5rem">
+        <div>
+          <label for="cik-input">SEC CIK</label>
+          <input type="text" id="cik-input" value="0000783412" />
+        </div>
+        <div>
+          <label for="ua-input">User-Agent <span style="color:var(--text-muted);font-weight:400">(required by SEC)</span></label>
+          <input type="text" id="ua-input" placeholder="Your Name your@email.com" />
+        </div>
+      </div>
+
+      <div class="btn-row" style="margin-top:1rem">
+        <button class="btn btn-blue" id="btn-auto-detect">
+          <span class="spinner" id="detect-spinner" style="display:none"></span>
+          Auto-Detect Periods from EDGAR
+        </button>
+      </div>
+      <div class="alert alert-info"    id="detect-loading" style="display:none">Fetching latest 10-Q from EDGAR&hellip;</div>
+      <div class="alert alert-danger"  id="detect-error"></div>
+
+      <!-- Detected filing banner (shown after auto-detect) -->
+      <div id="detect-result" style="display:none;margin-top:0.75rem">
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:0.75rem 1rem;font-size:0.83rem">
+          <span style="color:var(--success);font-weight:600">&#10003; Detected:</span>
+          <span id="detect-summary" style="margin-left:0.5rem;color:var(--text-muted)"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Period configuration ──────────────────────────────────────── -->
+    <div class="card">
+      <h2>Period Configuration
+        <span style="font-size:0.75rem;font-weight:400;color:var(--text-muted);margin-left:0.75rem">
+          Auto-filled from EDGAR — edit any field if needed
+        </span>
+      </h2>
+
+      <!-- Source period -->
+      <div style="border:1px solid var(--border);border-radius:6px;padding:1rem;margin-bottom:1rem">
+        <div style="font-size:0.78rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.75rem">
+          Source Document (filed 10-Q)
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 1.5rem">
+          <div>
+            <label>Period end label <span style="color:var(--text-muted)">(e.g. December 31, 2025)</span></label>
+            <input type="text" id="src-label" placeholder="December 31, 2025" />
+          </div>
+          <div>
+            <label>Comparable period label <span style="color:var(--text-muted)">(prior year same quarter)</span></label>
+            <input type="text" id="src-comparable" placeholder="December 31, 2024" />
+          </div>
+          <div>
+            <label>Quarter name <span style="color:var(--text-muted)">(first / second / third)</span></label>
+            <input type="text" id="src-quarter" placeholder="first" />
+          </div>
+          <div>
+            <label>Filing date <span style="color:var(--text-muted)">(as it appears in the document)</span></label>
+            <input type="text" id="src-filing-date" placeholder="February 17, 2026" />
+          </div>
+          <div>
+            <label>YTD months <span style="color:var(--text-muted)">(3, 6, or 9)</span></label>
+            <input type="text" id="src-ytd-months" placeholder="3" style="max-width:120px" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Target period -->
+      <div style="border:1px solid var(--border);border-radius:6px;padding:1rem;margin-bottom:1rem">
+        <div style="font-size:0.78rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.75rem">
+          Target Document (next quarter draft)
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 1.5rem">
+          <div>
+            <label>Period end label</label>
+            <input type="text" id="tgt-label" placeholder="March 31, 2026" />
+          </div>
+          <div>
+            <label>Comparable period label</label>
+            <input type="text" id="tgt-comparable" placeholder="March 31, 2025" />
+          </div>
+          <div>
+            <label>Quarter name</label>
+            <input type="text" id="tgt-quarter" placeholder="second" />
+          </div>
+          <div>
+            <label>Filing date <span style="color:var(--text-muted)">(leave as placeholder)</span></label>
+            <input type="text" id="tgt-filing-date" placeholder="[FILING DATE]" />
+          </div>
+          <div>
+            <label>YTD months</label>
+            <input type="text" id="tgt-ytd-months" placeholder="6" style="max-width:120px" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Shared -->
+      <label>Prior year-end label <span style="color:var(--text-muted)">(Balance Sheet comparison column — stays the same each quarter)</span></label>
+      <input type="text" id="prior-ye" placeholder="September 30, 2025" />
+
+      <div class="alert alert-warning" id="period-warning" style="display:none;margin-top:0.75rem"></div>
+    </div>
+
+    <!-- EDGAR data preview ─────────────────────────────────────────── -->
+    <div class="card">
+      <h2>EDGAR Data Preview <span style="font-size:0.78rem;font-weight:400;color:var(--text-muted)">— verify comparable-period facts before generating</span></h2>
+      <div class="btn-row">
+        <button class="btn btn-outline" id="btn-edgar-preview">Fetch Comparable-Period Facts</button>
+      </div>
+      <div class="alert alert-info"    id="edgar-loading"  style="display:none">Fetching EDGAR data&hellip;</div>
+      <div class="alert alert-danger"  id="edgar-error"></div>
+      <div class="alert alert-success" id="edgar-success"  style="display:none"></div>
+      <div id="edgar-preview-section" style="display:none">
+        <div class="edgar-grid" id="edgar-facts-grid"></div>
+      </div>
+    </div>
+
+    <!-- Options ────────────────────────────────────────────────────── -->
+    <div class="card">
+      <h2>Options</h2>
+      <div class="toggle-row">
+        <label class="toggle">
+          <input type="checkbox" id="ytd-toggle" />
+          <span class="slider"></span>
+        </label>
+        <div>
+          <div class="toggle-label">Add YTD columns to Income Statement</div>
+          <div class="toggle-hint">
+            Expands the table from 3 to 5 columns using lxml XML manipulation.
+            Leave OFF for the first run and verify the basic pass before enabling.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-outline" id="btn-back-1">&larr; Back</button>
+      <button class="btn btn-primary" id="btn-to-step3">Continue to Generate &rarr;</button>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════════════════════════════
+       STEP 3 — Generate
+  ═════════════════════════════════════════════════════════════════ -->
+  <section id="step-3" class="hidden">
+    <div class="card">
+      <h2>Generate Roll-Forward Document</h2>
+      <p style="font-size:0.85rem;color:var(--text-muted)">
+        The source file will not be modified. A new draft for
+        <strong id="gen-tgt-label">the target period</strong> will be generated and downloaded.
+      </p>
+      <div class="btn-row">
+        <button class="btn btn-outline" id="btn-back-2">&larr; Back</button>
+        <button class="btn btn-primary" id="btn-generate">
+          <span class="spinner" id="gen-spinner" style="display:none"></span>
+          Roll Forward
+        </button>
+      </div>
+      <div class="alert alert-info"    id="gen-loading"  style="display:none">Processing&hellip; this may take 15-30 seconds while fetching EDGAR data.</div>
+      <div class="alert alert-danger"  id="gen-error"></div>
+    </div>
+
+    <!-- Results (hidden until generation completes) -->
+    <div class="card hidden" id="results-card">
+      <h2>Results</h2>
+      <div class="stat-grid" id="stat-grid"></div>
+
+      <!-- Verification badges -->
+      <h2 style="margin-top:1.25rem">Automated Verification</h2>
+      <div class="v-row" id="v-row"></div>
+      <div class="missing-list" id="missing-list"></div>
+      <div class="warn-list"    id="warn-list"></div>
+
+      <!-- Manual checklist -->
+      <h2 style="margin-top:1.25rem">Manual Review Checklist</h2>
+      <div class="hl-note">
+        &#9888; MD&amp;A paragraphs containing dollar amounts have been highlighted yellow.
+        Update all narrative text manually after downloading.
+      </div>
+      <ul class="checklist" id="manual-checklist">
+        <li><input type="checkbox" /><span>Cover page shows <strong id="chk-tgt-label">the target period</strong></span></li>
+        <li><input type="checkbox" /><span>Balance Sheet <strong id="chk-prior-ye">prior year-end</strong> column is intact and unchanged</span></li>
+        <li><input type="checkbox" /><span>Income statement <strong id="chk-tgt-comparable">comparable period</strong> column has numbers</span></li>
+        <li><input type="checkbox" /><span>Income statement <strong id="chk-tgt-current">current period</strong> column is blank</span></li>
+        <li><input type="checkbox" /><span>No &ldquo;<span id="chk-src-label">source period date</span>&rdquo; remains anywhere in the document</span></li>
+        <li><input type="checkbox" /><span>Yellow-highlighted MD&amp;A paragraphs have been manually updated</span></li>
+        <li><input type="checkbox" /><span><code>[FILING DATE]</code> placeholder has been filled in</span></li>
+      </ul>
+
+      <div class="btn-row" style="margin-top:1.25rem">
+        <button class="btn btn-primary" id="btn-download-again">Download Again</button>
+        <button class="btn btn-outline" id="btn-restart">Start Over</button>
+      </div>
+    </div>
+  </section>
+
+</div><!-- /.container -->
+
+<script>
+// ─────────────────────────────────────────────────────────────────────────
+// State
+// ─────────────────────────────────────────────────────────────────────────
+let state = {
+  fileId: null,
+  filename: null,
+  tableMap: null,
+  lastOutputBlob: null,
+  lastOutputFilename: null,
+};
+
+// ─────────────────────────────────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────────────────────────────────
+function showStep(n) {
+  [1,2,3].forEach(i => {
+    document.getElementById(`step-${i}`).classList.toggle("hidden", i !== n);
+    const nav = document.getElementById(`step-nav-${i}`);
+    nav.classList.remove("active","done");
+    if (i === n) nav.classList.add("active");
+    else if (i < n) nav.classList.add("done");
+  });
+  window.scrollTo({top: 0, behavior: "smooth"});
+}
+
+function showAlert(id, msg) {
+  const el = document.getElementById(id);
+  el.textContent = msg;
+  el.style.display = "block";
+  el.classList.add("show");
+}
+function hideAlert(id) {
+  const el = document.getElementById(id);
+  el.classList.remove("show");
+  el.style.display = "none";
+}
+function setVal(id, val) { document.getElementById(id).value = val ?? ""; }
+function getVal(id)       { return document.getElementById(id).value.trim(); }
+
+function triggerDownload(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+}
+function escHtml(s) {
+  return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+}
+function formatNum(v) {
+  if (typeof v === "number") return Math.abs(v) < 1000 ? v.toFixed(2) : v.toLocaleString();
+  return escHtml(String(v));
+}
+
+// Read period config from form fields
+function readSourceConfig() {
+  return {
+    period_label:        getVal("src-label"),
+    period_end:          labelToIso(getVal("src-label")),
+    comparable_label:    getVal("src-comparable"),
+    comparable_end:      labelToIso(getVal("src-comparable")),
+    quarter_name:        getVal("src-quarter"),
+    filing_date:         getVal("src-filing-date"),
+    ytd_months:          parseInt(getVal("src-ytd-months"), 10) || 3,
+    prior_year_end_label: getVal("prior-ye"),
+  };
+}
+function readTargetConfig() {
+  return {
+    period_label:        getVal("tgt-label"),
+    period_end:          labelToIso(getVal("tgt-label")),
+    comparable_label:    getVal("tgt-comparable"),
+    comparable_end:      labelToIso(getVal("tgt-comparable")),
+    quarter_name:        getVal("tgt-quarter"),
+    filing_date:         getVal("tgt-filing-date") || "[FILING DATE]",
+    ytd_months:          parseInt(getVal("tgt-ytd-months"), 10) || 6,
+    prior_year_end_label: getVal("prior-ye"),
+  };
+}
+
+// Convert "March 31, 2026" → "2026-03-31" (best-effort, server re-derives anyway)
+const _MONTHS = {January:1,February:2,March:3,April:4,May:5,June:6,
+                 July:7,August:8,September:9,October:10,November:11,December:12};
+function labelToIso(label) {
+  const m = label.match(/^(\w+)\s+(\d+),\s*(\d{4})$/);
+  if (!m) return "";
+  const mo = String(_MONTHS[m[1]] || 1).padStart(2,"0");
+  const dy = m[2].padStart(2,"0");
+  return `${m[3]}-${mo}-${dy}`;
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Step 1 — Upload
+// ─────────────────────────────────────────────────────────────────────────
+document.getElementById("btn-upload").addEventListener("click", async () => {
+  const fileInput = document.getElementById("file-input");
+  if (!fileInput.files.length) { showAlert("upload-error", "Please select a .docx file first."); return; }
+  const file = fileInput.files[0];
+  hideAlert("upload-error"); hideAlert("upload-success");
+  document.getElementById("upload-spinner").style.display = "inline-block";
+  document.getElementById("btn-upload").disabled = true;
+
+  try {
+    const fd = new FormData();
+    fd.append("file", file);
+    const resp = await fetch("/upload", { method:"POST", body:fd });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.error || resp.statusText);
+
+    state.fileId   = data.file_id;
+    state.filename = data.filename;
+    state.tableMap = data.table_map;
+
+    showAlert("upload-success", `Uploaded: ${data.filename} — ${data.table_map.length} tables detected.`);
+    renderTableMap(data.table_map);
+    document.getElementById("table-map-card").classList.remove("hidden");
+  } catch(err) {
+    showAlert("upload-error", `Upload failed: ${err.message}`);
+  } finally {
+    document.getElementById("upload-spinner").style.display = "none";
+    document.getElementById("btn-upload").disabled = false;
+  }
+});
+
+function renderTableMap(tableMap) {
+  const tbody = document.getElementById("table-map-body");
+  tbody.innerHTML = "";
+  tableMap.forEach(t => {
+    const tr = document.createElement("tr");
+    const headersHtml = t.headers.map((row, ri) =>
+      `<div style="color:${ri===0?'var(--text)':'var(--text-muted)'}">Row ${ri}: ${row.map(h=>`<em>${escHtml(h||"—")}</em>`).join(" | ")}</div>`
+    ).join("");
+    tr.innerHTML = `<td><span class="idx-badge">${t.index}</span></td><td>${t.rows}r &times; ${t.cols}c</td><td>${headersHtml}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+document.getElementById("btn-to-step2").addEventListener("click", () => showStep(2));
+
+// ─────────────────────────────────────────────────────────────────────────
+// Step 2 — Auto-detect periods from EDGAR
+// ─────────────────────────────────────────────────────────────────────────
+document.getElementById("btn-auto-detect").addEventListener("click", async () => {
+  const cik = getVal("cik-input");
+  const ua  = getVal("ua-input");
+  if (!ua) { showAlert("detect-error", "Enter your User-Agent (name + email) first — required by SEC."); return; }
+
+  hideAlert("detect-error");
+  document.getElementById("detect-loading").style.display = "block";
+  document.getElementById("detect-result").style.display = "none";
+  document.getElementById("btn-auto-detect").disabled = true;
+  document.getElementById("detect-spinner").style.display = "inline-block";
+
+  try {
+    const params = new URLSearchParams({ cik, user_agent: ua });
+    const resp = await fetch(`/api/detect-period?${params}`);
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.error || resp.statusText);
+
+    populatePeriodFields(data.source, data.target);
+
+    // Show detection banner
+    const fi = data.filing_info || {};
+    document.getElementById("detect-summary").textContent =
+      `${fi.company_name || "Company"} — latest 10-Q period: ${fi.period_end} ` +
+      `(filed ${fi.filing_date}) | FY end: ${fi.fy_end_label}`;
+    document.getElementById("detect-result").style.display = "block";
+
+    // Show any warnings from detection (e.g. approaching annual period)
+    if (data.warnings && data.warnings.length) {
+      showAlert("period-warning", data.warnings.join(" "));
+      document.getElementById("period-warning").style.display = "block";
+    } else {
+      hideAlert("period-warning");
+    }
+  } catch(err) {
+    showAlert("detect-error", `Auto-detect failed: ${err.message}`);
+  } finally {
+    document.getElementById("detect-loading").style.display = "none";
+    document.getElementById("btn-auto-detect").disabled = false;
+    document.getElementById("detect-spinner").style.display = "none";
+  }
+});
+
+function populatePeriodFields(src, tgt) {
+  setVal("src-label",       src.period_label);
+  setVal("src-comparable",  src.comparable_label);
+  setVal("src-quarter",     src.quarter_name);
+  setVal("src-filing-date", src.filing_date);
+  setVal("src-ytd-months",  src.ytd_months);
+  setVal("tgt-label",       tgt.period_label);
+  setVal("tgt-comparable",  tgt.comparable_label);
+  setVal("tgt-quarter",     tgt.quarter_name);
+  setVal("tgt-filing-date", tgt.filing_date);
+  setVal("tgt-ytd-months",  tgt.ytd_months);
+  setVal("prior-ye",        src.prior_year_end_label);
+}
+
+// EDGAR comparable-period facts preview
+document.getElementById("btn-edgar-preview").addEventListener("click", async () => {
+  const cik = getVal("cik-input");
+  const ua  = getVal("ua-input");
+  const tgtComparableEnd = labelToIso(getVal("tgt-comparable"));
+  if (!ua) { showAlert("edgar-error", "Enter User-Agent first."); return; }
+  if (!tgtComparableEnd) { showAlert("edgar-error", "Set target comparable period label first."); return; }
+
+  hideAlert("edgar-error");
+  hideAlert("edgar-success");
+  document.getElementById("edgar-loading").style.display = "block";
+  document.getElementById("edgar-preview-section").style.display = "none";
+
+  try {
+    const params = new URLSearchParams({ cik, period_end: tgtComparableEnd, user_agent: ua });
+    const resp = await fetch(`/edgar-preview?${params}`);
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.error || resp.statusText);
+
+    renderEdgarPreview(data.facts, data.count);
+    document.getElementById("edgar-success").textContent = `Found ${data.count} facts for ${data.period_end}.`;
+    document.getElementById("edgar-success").style.display = "block";
+    document.getElementById("edgar-preview-section").style.display = "block";
+  } catch(err) {
+    showAlert("edgar-error", `EDGAR preview failed: ${err.message}`);
+  } finally {
+    document.getElementById("edgar-loading").style.display = "none";
+  }
+});
+
+function renderEdgarPreview(facts, count) {
+  const grid = document.getElementById("edgar-facts-grid");
+  grid.innerHTML = "";
+  if (!count) {
+    grid.innerHTML = '<div style="color:var(--text-muted);grid-column:1/-1">No facts found for this period.</div>';
+    return;
+  }
+  Object.entries(facts).slice(0, 60).forEach(([key, val]) => {
+    const div = document.createElement("div");
+    div.className = "edgar-fact";
+    div.innerHTML = `<span class="edgar-concept">${escHtml(key)}</span><span class="edgar-val">${formatNum(val)}</span>`;
+    grid.appendChild(div);
+  });
+}
+
+document.getElementById("btn-back-1").addEventListener("click", () => showStep(1));
+
+document.getElementById("btn-to-step3").addEventListener("click", () => {
+  const ua = getVal("ua-input");
+  if (!ua) { showAlert("detect-error", "Enter User-Agent before proceeding."); return; }
+  if (!getVal("src-label") || !getVal("tgt-label")) {
+    showAlert("detect-error", "Period labels are required. Use Auto-Detect or fill in manually.");
+    return;
+  }
+  // Update Step 3 labels from config
+  const tgt = readTargetConfig();
+  const src = readSourceConfig();
+  document.getElementById("gen-tgt-label").textContent = tgt.period_label || "the target period";
+  document.getElementById("chk-tgt-label").textContent     = tgt.period_label;
+  document.getElementById("chk-prior-ye").textContent      = src.prior_year_end_label;
+  document.getElementById("chk-tgt-comparable").textContent= tgt.comparable_label;
+  document.getElementById("chk-tgt-current").textContent   = tgt.period_label;
+  document.getElementById("chk-src-label").textContent     = src.period_label;
+  showStep(3);
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// Step 3 — Generate
+// ─────────────────────────────────────────────────────────────────────────
+document.getElementById("btn-back-2").addEventListener("click", () => showStep(2));
+
+document.getElementById("btn-generate").addEventListener("click", async () => {
+  hideAlert("gen-error");
+  document.getElementById("gen-loading").style.display = "block";
+  document.getElementById("btn-generate").disabled = true;
+  document.getElementById("gen-spinner").style.display = "inline-block";
+  document.getElementById("results-card").classList.add("hidden");
+
+  const payload = {
+    file_id:       state.fileId,
+    cik:           getVal("cik-input"),
+    user_agent:    getVal("ua-input"),
+    add_ytd:       document.getElementById("ytd-toggle").checked,
+    source_config: readSourceConfig(),
+    target_config: readTargetConfig(),
+  };
+
+  try {
+    const resp = await fetch("/rollforward", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!resp.ok) {
+      const errData = await resp.json().catch(() => ({}));
+      throw new Error(errData.error || `HTTP ${resp.status}`);
+    }
+
+    const blob = await resp.blob();
+    const cd   = resp.headers.get("Content-Disposition") || "";
+    const fnMatch = cd.match(/filename[^;=\n]*=(["']?)([^"'\n]*)\1/);
+    const filename = fnMatch ? fnMatch[2] : `Form_10-Q_${payload.target_config.period_label || "draft"}.docx`;
+
+    state.lastOutputBlob = blob;
+    state.lastOutputFilename = filename;
+    triggerDownload(blob, filename);
+
+    renderResults(null);
+    document.getElementById("results-card").classList.remove("hidden");
+  } catch(err) {
+    showAlert("gen-error", `Generation failed: ${err.message}`);
+  } finally {
+    document.getElementById("gen-loading").style.display = "none";
+    document.getElementById("btn-generate").disabled = false;
+    document.getElementById("gen-spinner").style.display = "none";
+  }
+});
+
+function renderResults(stats) {
+  const statGrid = document.getElementById("stat-grid");
+  if (stats) {
+    statGrid.innerHTML = `
+      <div class="stat-box"><div class="stat-num">${stats.replacements_made ?? "—"}</div><div class="stat-lbl">Text replacements</div></div>
+      <div class="stat-box"><div class="stat-num">${stats.tables_processed ?? "—"}</div><div class="stat-lbl">Tables processed</div></div>
+      <div class="stat-box"><div class="stat-num">${stats.edgar_facts_found ?? "—"}</div><div class="stat-lbl">EDGAR facts inserted</div></div>
+      <div class="stat-box"><div class="stat-num">${(stats.edgar_facts_missing||[]).length}</div><div class="stat-lbl">EDGAR facts missing</div></div>`;
+  } else {
+    statGrid.innerHTML = `<div class="stat-box" style="grid-column:1/-1">
+      <div style="font-size:0.85rem;color:var(--success)">&#10003; Document generated successfully. Download started.</div></div>`;
+  }
+
+  const vRow = document.getElementById("v-row");
+  vRow.innerHTML = "";
+  if (stats && stats.verification) {
+    const v = stats.verification;
+    [
+      [v.no_source_dates_remain,        "No source dates remain"],
+      [v.balance_sheet_col2_intact,     "Balance Sheet prior YE intact"],
+      [v.income_stmt_comparable_filled, "Income stmt comparable filled"],
+    ].forEach(([pass, label]) => {
+      const b = document.createElement("span");
+      b.className = `vbadge ${pass ? "pass" : "fail"}`;
+      b.textContent = (pass ? "✓ " : "✗ ") + label;
+      vRow.appendChild(b);
+    });
+    const missing = document.getElementById("missing-list");
+    missing.innerHTML = "";
+    [...new Set(stats.edgar_facts_missing||[])].forEach(m => {
+      const d = document.createElement("div"); d.textContent = "⚠ " + m; missing.appendChild(d);
+    });
+    const warns = document.getElementById("warn-list");
+    warns.innerHTML = "";
+    (stats.warnings||[]).forEach(w => {
+      const d = document.createElement("div"); d.textContent = w; warns.appendChild(d);
+    });
+  } else {
+    const b = document.createElement("span");
+    b.className = "vbadge warn";
+    b.textContent = "⚠ Review output manually against the checklist below";
+    vRow.appendChild(b);
+  }
+}
+
+document.getElementById("btn-download-again").addEventListener("click", () => {
+  if (state.lastOutputBlob) triggerDownload(state.lastOutputBlob, state.lastOutputFilename);
+});
+
+document.getElementById("btn-restart").addEventListener("click", () => {
+  state = { fileId:null, filename:null, tableMap:null, lastOutputBlob:null, lastOutputFilename:null };
+  document.getElementById("file-input").value = "";
+  document.getElementById("table-map-card").classList.add("hidden");
+  hideAlert("upload-error"); hideAlert("upload-success");
+  document.getElementById("results-card").classList.add("hidden");
+  showStep(1);
+});
+</script>
+</body>
+</html>
