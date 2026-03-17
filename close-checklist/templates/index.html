@@ -1,0 +1,1167 @@
+{% extends "base.html" %}
+{% block title %}Close Checklist – Tasks{% endblock %}
+
+{% block content %}
+
+{# ── Stats + toolbar ──────────────────────────────────────────────────────── #}
+{% set total = tasks|length %}
+{% set done  = stats.get('Complete', 0) %}
+{% set pct   = ((done / total * 100)|int) if total > 0 else 0 %}
+
+<div class="row g-2 mb-3 align-items-center">
+  <div class="col">
+    <div class="card shadow-sm">
+      <div class="card-body py-2 px-3">
+        <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+          <span class="badge stat-badge badge-status-not-started">
+            <i class="fas fa-minus-circle me-1"></i>Not Started: {{ stats.get('Not Started',0) }}
+          </span>
+          <span class="badge stat-badge badge-status-in-progress">
+            <i class="fas fa-spinner me-1"></i>In Progress: {{ stats.get('In Progress',0) }}
+          </span>
+          <span class="badge stat-badge badge-status-complete">
+            <i class="fas fa-check-circle me-1"></i>Complete: {{ done }}
+          </span>
+          <span class="badge stat-badge badge-status-overdue">
+            <i class="fas fa-exclamation-circle me-1"></i>Overdue: {{ stats.get('Overdue',0) }}
+          </span>
+          <span class="ms-auto text-muted small">{{ total }} tasks &nbsp;·&nbsp; {{ pct }}% complete</span>
+        </div>
+        <div class="progress" style="height:5px;">
+          <div class="progress-bar bg-success" style="width:{{ pct }}%"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-auto d-flex gap-2 flex-wrap align-items-center">
+    {% if is_historical %}
+    <span class="badge bg-warning text-dark fs-6 px-3 py-2">
+      <i class="fas fa-clock-rotate-left me-1"></i>Viewing {{ all_periods | selectattr('id','equalto', period_id|int) | map(attribute='period_name') | first | default('Historical Period') }} — Read Only
+    </span>
+    <a href="/" class="btn btn-sm btn-outline-dark">← Back to Current</a>
+    {% else %}
+    <button class="btn btn-sm btn-danger fw-semibold" data-bs-toggle="modal" data-bs-target="#addTaskModal">
+      <i class="fas fa-plus me-1"></i>New Task
+    </button>
+    <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#columnsModal">
+      <i class="fas fa-table-columns me-1"></i>Columns
+    </button>
+    <a href="/export?{{ request.query_string.decode() }}" class="btn btn-sm btn-success" target="_blank">
+      <i class="fas fa-file-excel me-1"></i>Export Excel
+    </a>
+    <button class="btn btn-sm btn-danger" onclick="sendBulkReminders('Overdue')">
+      <i class="fas fa-bell me-1"></i>Remind Overdue
+    </button>
+    <button class="btn btn-sm btn-warning" onclick="sendBulkReminders('In Progress')">
+      <i class="fas fa-bell me-1"></i>Remind In-Progress
+    </button>
+    <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#rollModal">
+      <i class="fas fa-forward-step me-1"></i>Roll Forward
+    </button>
+    {% endif %}
+    <button class="btn btn-sm btn-outline-dark" data-bs-toggle="modal" data-bs-target="#periodMgmtModal">
+      <i class="fas fa-clock-rotate-left me-1"></i>Periods
+    </button>
+  </div>
+</div>
+
+{# ── Filters ──────────────────────────────────────────────────────────────── #}
+<div class="card shadow-sm mb-3">
+  <div class="card-body py-2 px-3">
+    <form method="GET" class="row g-2 align-items-center">
+      {# ── Period selector ── #}
+      <div class="col-auto">
+        <select name="period_id" class="form-select form-select-sm" style="font-weight:600;" onchange="this.form.submit()">
+          <option value="current" {% if not is_historical %}selected{% endif %}>
+            📅 {{ active_period.period_name if active_period else 'Current' }} (Current)
+          </option>
+          {% for p in all_periods if not p.is_active %}
+          <option value="{{ p.id }}" {% if period_id == p.id|string %}selected{% endif %}>
+            {{ p.period_name }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-auto">
+        <select name="category" class="form-select form-select-sm">
+          <option value="">All Categories</option>
+          {% for c in categories %}
+            <option value="{{ c }}" {% if filters.category==c %}selected{% endif %}>{{ c }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-auto">
+        <select name="frequency" class="form-select form-select-sm">
+          <option value="">All Frequencies</option>
+          {% for f in frequencies %}
+            <option value="{{ f }}" {% if filters.frequency==f %}selected{% endif %}>{{ f }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-auto">
+        <select name="preparer" class="form-select form-select-sm">
+          <option value="">All Preparers</option>
+          {% for p in preparers %}
+            <option value="{{ p }}" {% if filters.preparer==p %}selected{% endif %}>{{ p }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-auto">
+        <select name="reviewer" class="form-select form-select-sm">
+          <option value="">All Reviewers</option>
+          {% for r in reviewers %}
+            <option value="{{ r }}" {% if filters.reviewer==r %}selected{% endif %}>{{ r }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-auto">
+        <select name="status" class="form-select form-select-sm">
+          <option value="">All Statuses</option>
+          {% for s in status_options %}
+            <option value="{{ s }}" {% if filters.status==s %}selected{% endif %}>{{ s }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-auto">
+        <select name="timing" class="form-select form-select-sm">
+          <option value="">All Timings</option>
+          {% for t in timings %}
+            <option value="{{ t }}" {% if filters.timing==t %}selected{% endif %}>{{ t }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-auto">
+        <button type="submit" class="btn btn-primary btn-sm"><i class="fas fa-filter me-1"></i>Filter</button>
+        <a href="/" class="btn btn-outline-secondary btn-sm ms-1">Clear</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+{# ── Task Table ────────────────────────────────────────────────────────────── #}
+<div class="card shadow-sm">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table id="taskTable" class="table table-sm table-hover mb-0 align-middle">
+        <thead class="table-dark">
+          <tr>
+            <th class="ps-3"><input type="checkbox" id="selectAll"></th>
+            <th title="Double-click any cell to edit">Category</th>
+            <th>Description <small class="fw-normal opacity-75">(dbl-click to edit)</small></th>
+            <th title="Double-click any cell to edit">Frequency</th>
+            <th title="Double-click any cell to edit">Preparer</th>
+            <th title="Double-click any cell to edit">Reviewer</th>
+            <th title="Double-click any cell to edit">Timing</th>
+            <th>Due Date</th>
+            <th>Status</th>
+            {# ── custom column headers ── #}
+            {% for col in custom_cols %}
+            <th class="custom-col-header" data-col-id="{{ col.id }}">
+              {{ col.name }}
+              <i class="fas fa-pen text-muted ms-1" style="font-size:.65rem;cursor:pointer;"
+                 onclick="renameColPrompt({{ col.id }}, '{{ col.name|e }}')" title="Rename"></i>
+            </th>
+            {% endfor %}
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for task in tasks %}
+          {% set sc = status_colors.get(task.status, 'secondary') %}
+          <tr id="row-{{ task.id }}"
+              class="{% if task.status=='Overdue' %}row-overdue{% elif task.status=='Complete' %}row-complete{% elif task.status=='In Progress' %}row-in-progress{% endif %}">
+            <td class="ps-3"><input type="checkbox" class="task-cb" value="{{ task.id }}"></td>
+            <td>
+              <span class="field-text badge bg-light text-dark border"
+                    data-task-id="{{ task.id }}" data-field="category" data-list="cat-list"
+                    style="cursor:text;" title="Double-click to edit">
+                {{ task.category or '—' }}
+              </span>
+            </td>
+
+            {# ── description (double-click to edit) ── #}
+            <td class="desc-cell" style="max-width:360px;">
+              <span class="desc-text" data-task-id="{{ task.id }}"
+                    title="{{ task.description }}" data-bs-toggle="tooltip" data-bs-placement="top">
+                {{ task.description[:90] }}{% if task.description|length > 90 %}…{% endif %}
+              </span>
+              {% if task.notes %}
+              <div class="text-muted small mt-1">
+                <i class="fas fa-note-sticky me-1"></i>{{ task.notes[:60] }}{% if task.notes|length > 60 %}…{% endif %}
+              </div>
+              {% endif %}
+            </td>
+
+            <td>
+              <span class="field-text text-nowrap"
+                    data-task-id="{{ task.id }}" data-field="frequency" data-list="freq-list"
+                    style="cursor:text;" title="Double-click to edit">
+                {{ task.frequency or '—' }}
+              </span>
+            </td>
+            <td>
+              <span class="field-text text-nowrap"
+                    data-task-id="{{ task.id }}" data-field="assigned_preparer" data-list="prep-list"
+                    style="cursor:text;" title="Double-click to edit">
+                {{ task.assigned_preparer or '—' }}
+              </span>
+            </td>
+            <td>
+              <span class="field-text text-nowrap"
+                    data-task-id="{{ task.id }}" data-field="assigned_reviewer" data-list="rev-list"
+                    style="cursor:text;" title="Double-click to edit">
+                {{ task.assigned_reviewer or '—' }}
+              </span>
+            </td>
+            <td>
+              <span class="field-text text-nowrap"
+                    data-task-id="{{ task.id }}" data-field="timing" data-list="timing-list"
+                    style="cursor:text;" title="Double-click to edit">
+                {{ task.timing or '—' }}
+              </span>
+            </td>
+
+            <td>
+              <input type="date" class="form-control form-control-sm due-date-input"
+                     value="{{ task.due_date or '' }}" data-task-id="{{ task.id }}"
+                     style="min-width:130px;">
+            </td>
+
+            <td>
+              <select class="form-select form-select-sm status-select"
+                      data-task-id="{{ task.id }}" style="min-width:130px;"
+                      data-status="{{ task.status }}">
+                {% for s in status_options %}
+                  <option value="{{ s }}" {% if task.status==s %}selected{% endif %}>{{ s }}</option>
+                {% endfor %}
+              </select>
+            </td>
+
+            {# ── custom column cells ── #}
+            {% for col in custom_cols %}
+            {% set val = task.custom.get(col.id, '') %}
+            <td>
+              {% if col.col_type == 'select' %}
+                <select class="form-select form-select-sm custom-select"
+                        data-task-id="{{ task.id }}" data-col-id="{{ col.id }}"
+                        style="min-width:110px;">
+                  <option value="">—</option>
+                  {% for opt in col.options_list %}
+                    <option value="{{ opt }}" {% if val==opt %}selected{% endif %}>{{ opt }}</option>
+                  {% endfor %}
+                </select>
+              {% elif col.col_type == 'date' %}
+                <input type="date" class="form-control form-control-sm custom-date"
+                       data-task-id="{{ task.id }}" data-col-id="{{ col.id }}"
+                       value="{{ val }}" style="min-width:130px;">
+              {% else %}
+                <span class="custom-text badge bg-light text-dark border"
+                      data-task-id="{{ task.id }}" data-col-id="{{ col.id }}"
+                      title="Double-click to edit" style="cursor:text; min-width:80px; display:inline-block;">
+                  {{ val or '—' }}
+                </span>
+              {% endif %}
+            </td>
+            {% endfor %}
+
+            {# ── Actions ── #}
+            <td class="text-nowrap">
+              {# Edit #}
+              <button class="btn btn-xs btn-outline-primary" onclick="openEditModal({{ task.id }})" title="Edit / Notes">
+                <i class="fas fa-pen-to-square"></i>
+              </button>
+              {# Reminder #}
+              <button class="btn btn-xs btn-outline-warning ms-1"
+                      onclick="sendReminder({{ task.id }}, '{{ task.assigned_preparer }}')"
+                      title="Send reminder to {{ task.assigned_preparer }}">
+                <i class="fas fa-bell"></i>
+              </button>
+              {# Evidence dropdown #}
+              <div class="dropdown d-inline-block ms-1">
+                <button class="btn btn-xs btn-outline-info dropdown-toggle"
+                        data-bs-toggle="dropdown" data-bs-auto-close="outside"
+                        title="Evidence / Support files"
+                        onclick="loadEvidence({{ task.id }})">
+                  <i class="fas fa-paperclip"></i>
+                  <span class="badge rounded-pill ms-1 ev-badge-{{ task.id }}
+                        {% if task.evidence_count > 0 %}bg-info{% else %}bg-secondary{% endif %}"
+                        style="font-size:.65rem;">{{ task.evidence_count }}</span>
+                </button>
+                <div class="dropdown-menu dropdown-menu-end shadow"
+                     style="min-width:310px; padding:10px;" id="ev-drop-{{ task.id }}">
+                  <div class="fw-semibold small mb-2 text-muted">
+                    <i class="fas fa-paperclip me-1"></i>Evidence &amp; Support Files
+                  </div>
+                  <div id="ev-list-{{ task.id }}" class="mb-2">
+                    <span class="text-muted small">Loading…</span>
+                  </div>
+                  <div class="border-top pt-2">
+                    <label class="btn btn-sm btn-outline-primary w-100 mb-0">
+                      <i class="fas fa-upload me-1"></i>Upload Files
+                      <input type="file" class="d-none" multiple
+                             onchange="uploadEvidence({{ task.id }}, this)">
+                    </label>
+                  </div>
+                </div>
+              </div>
+              {# Delete task #}
+              <button class="btn btn-xs btn-outline-danger ms-1"
+                      onclick="deleteTask({{ task.id }})" title="Delete task">
+                <i class="fas fa-trash"></i>
+              </button>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{# ── Bulk bar ─────────────────────────────────────────────────────────────── #}
+<div id="bulkBar" class="fixed-bottom bg-dark text-white px-4 py-2 d-none" style="z-index:1050;border-top:2px solid #0d6efd;">
+  <div class="d-flex align-items-center gap-3 flex-wrap">
+    <span id="bulkCount" class="fw-bold small">0 selected</span>
+    <select id="bulkStatus" class="form-select form-select-sm" style="width:160px;">
+      <option value="">Set status…</option>
+      {% for s in status_options %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
+    </select>
+    <input type="date" id="bulkDueDate" class="form-control form-control-sm" style="width:160px;">
+    <button class="btn btn-sm btn-primary" onclick="applyBulk()">Apply to Selected</button>
+    <button class="btn btn-sm btn-outline-light" onclick="clearSelection()">Cancel</button>
+  </div>
+</div>
+
+{# ══════════════════════════════ MODALS ══════════════════════════════════════ #}
+
+{# ── Add Task ── #}
+<div class="modal fade" id="addTaskModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header" style="background:#dc3545;color:#fff;">
+        <h6 class="modal-title mb-0"><i class="fas fa-plus me-2"></i>New Task</h6>
+        <button class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label fw-semibold">Category <span class="text-danger">*</span></label>
+            <input type="text" id="nt_category" class="form-control" list="cat-list"
+                   placeholder="e.g. Accounts Payable">
+            <datalist id="cat-list">
+              {% for c in categories %}<option value="{{ c }}">{% endfor %}
+            </datalist>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-semibold">Frequency</label>
+            <input type="text" id="nt_frequency" class="form-control" list="freq-list"
+                   placeholder="e.g. Monthly">
+            <datalist id="freq-list">
+              {% for f in frequencies %}<option value="{{ f }}">{% endfor %}
+            </datalist>
+          </div>
+          <div class="col-12">
+            <label class="form-label fw-semibold">Description <span class="text-danger">*</span></label>
+            <textarea id="nt_description" class="form-control" rows="3"
+                      placeholder="Task description…"></textarea>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-semibold">Assigned Preparer</label>
+            <input type="text" id="nt_preparer" class="form-control" list="prep-list">
+            <datalist id="prep-list">
+              {% for p in preparers %}<option value="{{ p }}">{% endfor %}
+            </datalist>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-semibold">Assigned Reviewer</label>
+            <input type="text" id="nt_reviewer" class="form-control" list="rev-list">
+            <datalist id="rev-list">
+              {% for r in reviewers %}<option value="{{ r }}">{% endfor %}
+            </datalist>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-semibold">Timing</label>
+            <input type="text" id="nt_timing" class="form-control" list="timing-list"
+                   placeholder="e.g. Pre Close">
+            <datalist id="timing-list">
+              {% for t in timings %}<option value="{{ t }}">{% endfor %}
+            </datalist>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-semibold">Due Date</label>
+            <input type="date" id="nt_due_date" class="form-control">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-danger" onclick="addTask()">
+          <i class="fas fa-plus me-1"></i>Create Task
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ── Edit / Notes ── #}
+<div class="modal fade" id="editModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header bg-dark text-white">
+        <h6 class="modal-title mb-0"><i class="fas fa-pen-to-square me-2"></i>Edit Task</h6>
+        <button class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="editTaskInfo" class="alert alert-light py-2 mb-3 small"></div>
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label fw-semibold">Status</label>
+            <select id="editStatus" class="form-select">
+              {% for s in status_options %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-semibold">Due Date</label>
+            <input type="date" id="editDueDate" class="form-control">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-semibold">Assigned Preparer</label>
+            <input type="text" id="editPreparer" class="form-control" list="prep-list">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-semibold">Assigned Reviewer</label>
+            <input type="text" id="editReviewer" class="form-control" list="rev-list">
+          </div>
+          <div class="col-12">
+            <label class="form-label fw-semibold">Description</label>
+            <textarea id="editDesc" class="form-control" rows="3"></textarea>
+          </div>
+          <div class="col-12">
+            <label class="form-label fw-semibold">Notes</label>
+            <textarea id="editNotes" class="form-control" rows="3"
+                      placeholder="Add notes, links, or comments…"></textarea>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-primary" onclick="saveEdit()">
+          <i class="fas fa-save me-1"></i>Save
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ── Manage Columns ── #}
+<div class="modal fade" id="columnsModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-dark text-white">
+        <h6 class="modal-title mb-0"><i class="fas fa-table-columns me-2"></i>Manage Custom Columns</h6>
+        <button class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        {# Existing columns #}
+        {% if custom_cols %}
+        <table class="table table-sm mb-3">
+          <thead class="table-light">
+            <tr><th>Column Name</th><th>Type</th><th></th></tr>
+          </thead>
+          <tbody>
+            {% for col in custom_cols %}
+            <tr id="col-row-{{ col.id }}">
+              <td>{{ col.name }}</td>
+              <td><span class="badge bg-secondary">{{ col.col_type }}</span></td>
+              <td>
+                <button class="btn btn-xs btn-outline-primary me-1"
+                        onclick="renameColPrompt({{ col.id }}, '{{ col.name|e }}')">
+                  <i class="fas fa-pen"></i>
+                </button>
+                <button class="btn btn-xs btn-outline-danger"
+                        onclick="deleteCol({{ col.id }}, '{{ col.name|e }}')">
+                  <i class="fas fa-trash"></i>
+                </button>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <p class="text-muted small mb-3">No custom columns yet. Add one below.</p>
+        {% endif %}
+
+        <hr class="my-2">
+        <h6 class="mb-2">Add New Column</h6>
+        <div class="row g-2">
+          <div class="col-5">
+            <input type="text" id="nc_name" class="form-control form-control-sm"
+                   placeholder="Column name">
+          </div>
+          <div class="col-4">
+            <select id="nc_type" class="form-select form-select-sm" onchange="toggleSelectOpts()">
+              <option value="text">Text</option>
+              <option value="date">Date</option>
+              <option value="select">Dropdown</option>
+            </select>
+          </div>
+          <div class="col-3">
+            <button class="btn btn-sm btn-primary w-100" onclick="addCol()">
+              <i class="fas fa-plus me-1"></i>Add
+            </button>
+          </div>
+          <div class="col-12 d-none" id="nc_opts_group">
+            <input type="text" id="nc_options" class="form-control form-control-sm"
+                   placeholder="Options, comma-separated  (e.g.  Yes, No, N/A)">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ── Manage Periods Modal ── #}
+<div class="modal fade" id="periodMgmtModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header bg-dark text-white">
+        <h6 class="modal-title mb-0">
+          <i class="fas fa-clock-rotate-left me-2"></i>Manage Periods
+        </h6>
+        <button class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-0">
+        <table class="table table-sm table-hover mb-0 align-middle">
+          <thead class="table-light">
+            <tr>
+              <th class="ps-3">Period</th>
+              <th>End Date</th>
+              <th>Status</th>
+              <th>Snapshots</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for p in all_periods %}
+            <tr id="period-row-{{ p.id }}">
+              <td class="ps-3 fw-semibold">{{ p.period_name }}</td>
+              <td class="text-muted">{{ p.period_date }}</td>
+              <td>
+                {% if p.is_active %}
+                  <span class="badge bg-success">Active</span>
+                {% else %}
+                  <span class="badge bg-secondary">Closed</span>
+                {% endif %}
+              </td>
+              <td class="text-muted small">
+                {% if not p.is_active %}
+                  <span id="snap-count-{{ p.id }}">saved</span>
+                {% else %}
+                  <span class="text-muted">live</span>
+                {% endif %}
+              </td>
+              <td class="text-nowrap">
+                {% if not p.is_active %}
+                  <button class="btn btn-xs btn-outline-warning"
+                          onclick="reopenPeriod({{ p.id }}, '{{ p.period_name }}')"
+                          title="Restore this period as active, saving current state first">
+                    <i class="fas fa-rotate-left me-1"></i>Reopen
+                  </button>
+                  <button class="btn btn-xs btn-outline-danger ms-1"
+                          onclick="deletePeriod({{ p.id }}, '{{ p.period_name }}')"
+                          title="Permanently delete this period and all its snapshots">
+                    <i class="fas fa-trash"></i>
+                  </button>
+                {% else %}
+                  <span class="text-muted small fst-italic">Current</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div class="modal-footer">
+        <div class="text-muted small me-auto">
+          <i class="fas fa-info-circle me-1"></i>
+          <strong>Reopen</strong> restores a period's saved state as live data (current state is saved first).
+          <strong>Delete</strong> permanently removes the period snapshot.
+        </div>
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ── Roll Forward Modal ── #}
+<div class="modal fade" id="rollModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h6 class="modal-title mb-0">
+          <i class="fas fa-forward-step me-2"></i>Roll Forward to
+          <strong>{{ next_period_name }}</strong>
+        </h6>
+        <button class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p>This will:</p>
+        <ul class="mb-2">
+          <li><strong>Save</strong> all current statuses, notes, and due dates as a
+              <em>{{ active_period.period_name if active_period else 'current' }}</em> snapshot
+              (viewable via the Period selector)</li>
+          <li><strong>Reset</strong> all tasks to <em>Not Started</em> for
+              <strong>{{ next_period_name }}</strong></li>
+          <li>Evidence files are retained and always accessible</li>
+        </ul>
+        <p class="text-warning mb-0">
+          <i class="fas fa-triangle-exclamation me-1"></i>
+          The current period's live data will be replaced. Make sure everything is finalised.
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-primary" onclick="rollForward()">
+          <i class="fas fa-forward-step me-1"></i>Roll to {{ next_period_name }}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+
+{% block scripts %}
+<script>
+// ── Task data (server-injected) ──────────────────────────────────────────────
+const TASKS        = {{ tasks | tojson }};
+const taskMap      = {};
+TASKS.forEach(t => { taskMap[t.id] = t; });
+const STATUS_COLORS  = {{ status_colors | tojson }};
+const IS_HISTORICAL  = {{ 'true' if is_historical else 'false' }};
+const ALL_MEMBERS    = {{ all_members | tojson }};   // union of preparers + reviewers
+
+// ── Init DataTable ───────────────────────────────────────────────────────────
+$(document).ready(function () {
+  $('#taskTable').DataTable({
+    pageLength: 50,
+    order: [[1, 'asc']],
+    columnDefs: [{ orderable: false, targets: [0] }],
+    language: { search: 'Search:' }
+  });
+  // Apply status colors to all selects on load
+  document.querySelectorAll('.status-select').forEach(sel => applySelectColor(sel, sel.value));
+  // Tooltips
+  document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el =>
+    new bootstrap.Tooltip(el, { trigger: 'hover' }));
+});
+
+// ── Status select ────────────────────────────────────────────────────────────
+document.addEventListener('change', function (e) {
+  if (IS_HISTORICAL) return;   // read-only in historical view
+  if (e.target.classList.contains('status-select')) {
+    const id  = +e.target.dataset.taskId;
+    const val = e.target.value;
+    postJSON(`/update_task/${id}`, { status: val }).then(r => {
+      if (r.success) {
+        showToast(`Status → "${val}"`);
+        applyRowColor(id, val);
+        applySelectColor(e.target, val);
+        taskMap[id].status = val;
+      }
+    });
+  }
+  if (e.target.classList.contains('due-date-input')) {
+    const id  = +e.target.dataset.taskId;
+    const val = e.target.value;
+    postJSON(`/update_task/${id}`, { due_date: val }).then(r => {
+      if (r.success) { showToast('Due date saved'); taskMap[id].due_date = val; }
+    });
+  }
+  // custom select
+  if (e.target.classList.contains('custom-select')) {
+    postJSON('/custom_values/update', {
+      task_id:   +e.target.dataset.taskId,
+      column_id: +e.target.dataset.colId,
+      value:      e.target.value,
+    }).then(r => { if (r.success) showToast('Saved'); });
+  }
+  // custom date
+  if (e.target.classList.contains('custom-date')) {
+    postJSON('/custom_values/update', {
+      task_id:   +e.target.dataset.taskId,
+      column_id: +e.target.dataset.colId,
+      value:      e.target.value,
+    }).then(r => { if (r.success) showToast('Saved'); });
+  }
+  // bulk checkboxes
+  if (e.target.classList.contains('task-cb')) updateBulkBar();
+});
+
+function applySelectColor(sel, status) {
+  const map = {
+    'Not Started': ['#e9ecef', '#444'],
+    'In Progress': ['#ffc107', '#6d4c00'],
+    'Complete':    ['#198754', '#fff'],
+    'Overdue':     ['#dc3545', '#fff'],
+  };
+  const [bg, fg] = map[status] || map['Not Started'];
+  sel.style.backgroundColor = bg;
+  sel.style.color = fg;
+  sel.style.fontWeight = '600';
+}
+
+function applyRowColor(id, status) {
+  const row = document.getElementById(`row-${id}`);
+  if (!row) return;
+  row.className = row.className.replace(/\brow-\S+/g, '').trim();
+  const map = { Overdue: 'row-overdue', Complete: 'row-complete', 'In Progress': 'row-in-progress' };
+  if (map[status]) row.classList.add(map[status]);
+}
+
+// ── Double-click dispatcher ───────────────────────────────────────────────────
+document.addEventListener('dblclick', function (e) {
+  if (IS_HISTORICAL) return;   // read-only in historical view
+  const descSpan   = e.target.closest('.desc-text');
+  if (descSpan)   { startDescEdit(descSpan);   return; }
+  const fieldSpan  = e.target.closest('.field-text');
+  if (fieldSpan)  { startFieldEdit(fieldSpan); return; }
+  const customSpan = e.target.closest('.custom-text');
+  if (customSpan) { startCustomEdit(customSpan); return; }
+});
+
+function startDescEdit(span) {
+  const taskId = +span.dataset.taskId;
+  const task   = taskMap[taskId];
+  if (!task) return;
+
+  const ta = document.createElement('textarea');
+  ta.className   = 'form-control form-control-sm';
+  ta.rows        = 3;
+  ta.style.minWidth = '300px';
+  ta.value = task.description;
+  span.replaceWith(ta);
+  ta.focus();
+  ta.select();
+
+  const restore = () => {
+    const newSpan = makeDescSpan(taskId, task.description);
+    ta.replaceWith(newSpan);
+  };
+  const save = () => {
+    const newDesc = ta.value.trim();
+    const newSpan = makeDescSpan(taskId, newDesc);
+    ta.replaceWith(newSpan);
+    if (newDesc && newDesc !== task.description) {
+      postJSON(`/update_task/${taskId}`, { description: newDesc }).then(r => {
+        if (r.success) { showToast('Description updated'); task.description = newDesc; }
+      });
+    }
+  };
+  ta.addEventListener('blur', save, { once: true });
+  ta.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); ta.blur(); }
+    if (e.key === 'Escape') { ta.removeEventListener('blur', save); restore(); }
+  });
+}
+
+function makeDescSpan(taskId, text) {
+  const s = document.createElement('span');
+  s.className         = 'desc-text';
+  s.dataset.taskId    = taskId;
+  s.dataset.bsToggle  = 'tooltip';
+  s.dataset.bsPlacement = 'top';
+  s.title             = text;
+  s.textContent       = text.length > 90 ? text.slice(0, 90) + '…' : text;
+  new bootstrap.Tooltip(s, { trigger: 'hover' });
+  return s;
+}
+
+// ── Generic field edit (Category, Frequency, Preparer, Reviewer, Timing) ─────
+// Maps DB field name → the datalist already in the Add-Task modal
+const FIELD_DATALIST = {
+  category:          'cat-list',
+  frequency:         'freq-list',
+  assigned_preparer: 'prep-list',
+  assigned_reviewer: 'rev-list',
+  timing:            'timing-list',
+};
+
+// People fields use a <select> dropdown; all others use a text input
+const PEOPLE_FIELDS = new Set(['assigned_preparer', 'assigned_reviewer']);
+
+function startFieldEdit(span) {
+  const taskId = +span.dataset.taskId;
+  const field  = span.dataset.field;
+  const task   = taskMap[taskId];
+  if (!task) return;
+
+  let el;
+
+  if (PEOPLE_FIELDS.has(field)) {
+    // ── Dropdown for preparer / reviewer ────────────────────────────────────
+    el = document.createElement('select');
+    el.className      = 'form-select form-select-sm';
+    el.style.minWidth = '140px';
+
+    // Blank / clear option
+    const blank = new Option('— Select —', '');
+    el.appendChild(blank);
+
+    ALL_MEMBERS.forEach(m => {
+      const opt = new Option(m, m);
+      if (m === (task[field] || '')) opt.selected = true;
+      el.appendChild(opt);
+    });
+
+    const commitSelect = () => {
+      const val = el.value;
+      el.replaceWith(makeFieldSpan(taskId, field, val, null));
+      if (val !== (task[field] || '')) {
+        postJSON(`/update_task/${taskId}`, { [field]: val }).then(r => {
+          if (r.success) { showToast('Saved'); task[field] = val; }
+        });
+      }
+    };
+    el.addEventListener('change', commitSelect);
+    el.addEventListener('blur',   commitSelect, { once: true });
+    el.addEventListener('keydown', e => { if (e.key === 'Escape') { el.replaceWith(span); } });
+
+  } else {
+    // ── Text input for all other fields ─────────────────────────────────────
+    el = document.createElement('input');
+    el.type      = 'text';
+    el.className = 'form-control form-control-sm';
+    el.style.minWidth = '110px';
+    el.value = (task[field] || '').replace(/^—$/, '');
+    const listId = FIELD_DATALIST[field] || span.dataset.list;
+    if (listId) el.setAttribute('list', listId);
+
+    const restore = () => el.replaceWith(makeFieldSpan(taskId, field, task[field] || '', span.dataset.list));
+    const save = () => {
+      const val = el.value.trim();
+      el.replaceWith(makeFieldSpan(taskId, field, val, span.dataset.list));
+      if (val !== (task[field] || '')) {
+        postJSON(`/update_task/${taskId}`, { [field]: val }).then(r => {
+          if (r.success) { showToast('Saved'); task[field] = val; }
+        });
+      }
+    };
+    el.addEventListener('blur', save, { once: true });
+    el.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); el.blur(); }
+      if (e.key === 'Escape') { el.removeEventListener('blur', save); restore(); }
+    });
+  }
+
+  span.replaceWith(el);
+  el.focus();
+  if (el.tagName === 'INPUT') el.select();
+}
+
+function makeFieldSpan(taskId, field, val, listAttr) {
+  const s = document.createElement('span');
+  s.className      = field === 'category'
+    ? 'field-text badge bg-light text-dark border'
+    : 'field-text text-nowrap';
+  s.dataset.taskId = taskId;
+  s.dataset.field  = field;
+  if (listAttr) s.dataset.list = listAttr;
+  s.style.cursor   = 'text';
+  s.title          = 'Double-click to edit';
+  s.textContent    = val || '—';
+  return s;
+}
+
+function startCustomEdit(span) {
+  const taskId   = +span.dataset.taskId;
+  const columnId = +span.dataset.colId;
+
+  const inp = document.createElement('input');
+  inp.type      = 'text';
+  inp.className = 'form-control form-control-sm';
+  inp.style.minWidth = '100px';
+  inp.value = span.textContent === '—' ? '' : span.textContent;
+  span.replaceWith(inp);
+  inp.focus();
+  inp.select();
+
+  const save = () => {
+    const val     = inp.value.trim();
+    const newSpan = document.createElement('span');
+    newSpan.className    = 'custom-text badge bg-light text-dark border';
+    newSpan.dataset.taskId = taskId;
+    newSpan.dataset.colId  = columnId;
+    newSpan.title          = 'Double-click to edit';
+    newSpan.style.cursor   = 'text';
+    newSpan.style.minWidth = '80px';
+    newSpan.style.display  = 'inline-block';
+    newSpan.textContent    = val || '—';
+    inp.replaceWith(newSpan);
+    postJSON('/custom_values/update', { task_id: taskId, column_id: columnId, value: val })
+      .then(r => { if (r.success) showToast('Saved'); });
+  };
+  inp.addEventListener('blur', save, { once: true });
+  inp.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') inp.blur();
+    if (e.key === 'Escape') { inp.removeEventListener('blur', save); inp.replaceWith(span); }
+  });
+}
+
+// ── Edit modal ───────────────────────────────────────────────────────────────
+let currentEditId = null;
+function openEditModal(id) {
+  const t = taskMap[id]; if (!t) return;
+  currentEditId = id;
+  document.getElementById('editTaskInfo').innerHTML =
+    `<strong class="text-primary">${t.category}</strong> &nbsp;|&nbsp; ${t.frequency} &nbsp;|&nbsp; ${t.timing || '—'}`;
+  document.getElementById('editStatus').value   = t.status || 'Not Started';
+  document.getElementById('editDueDate').value  = t.due_date || '';
+  document.getElementById('editPreparer').value = t.assigned_preparer || '';
+  document.getElementById('editReviewer').value = t.assigned_reviewer || '';
+  document.getElementById('editDesc').value     = t.description || '';
+  document.getElementById('editNotes').value    = t.notes || '';
+  new bootstrap.Modal(document.getElementById('editModal')).show();
+}
+function saveEdit() {
+  if (!currentEditId) return;
+  const data = {
+    status:            document.getElementById('editStatus').value,
+    due_date:          document.getElementById('editDueDate').value,
+    assigned_preparer: document.getElementById('editPreparer').value,
+    assigned_reviewer: document.getElementById('editReviewer').value,
+    description:       document.getElementById('editDesc').value,
+    notes:             document.getElementById('editNotes').value,
+  };
+  postJSON(`/update_task/${currentEditId}`, data).then(r => {
+    if (r.success) {
+      bootstrap.Modal.getInstance(document.getElementById('editModal')).hide();
+      showToast('Task saved');
+      Object.assign(taskMap[currentEditId], data);
+      applyRowColor(currentEditId, data.status);
+      const sel = document.querySelector(`.status-select[data-task-id="${currentEditId}"]`);
+      if (sel) { sel.value = data.status; applySelectColor(sel, data.status); }
+      // Update description display
+      const descSpan = document.querySelector(`.desc-text[data-task-id="${currentEditId}"]`);
+      if (descSpan) {
+        descSpan.title       = data.description;
+        descSpan.textContent = data.description.length > 90
+          ? data.description.slice(0, 90) + '…' : data.description;
+      }
+    }
+  });
+}
+
+// ── Add task ─────────────────────────────────────────────────────────────────
+function addTask() {
+  const desc = document.getElementById('nt_description').value.trim();
+  if (!desc) { alert('Description is required.'); return; }
+  const data = {
+    category:          document.getElementById('nt_category').value.trim(),
+    description:       desc,
+    frequency:         document.getElementById('nt_frequency').value.trim(),
+    assigned_preparer: document.getElementById('nt_preparer').value.trim(),
+    assigned_reviewer: document.getElementById('nt_reviewer').value.trim(),
+    timing:            document.getElementById('nt_timing').value.trim(),
+    due_date:          document.getElementById('nt_due_date').value,
+  };
+  postJSON('/add_task', data).then(r => {
+    if (r.success) {
+      bootstrap.Modal.getInstance(document.getElementById('addTaskModal')).hide();
+      showToast('Task created – reloading…');
+      setTimeout(() => location.reload(), 1000);
+    }
+  });
+}
+
+// ── Delete task ───────────────────────────────────────────────────────────────
+function deleteTask(id) {
+  if (!confirm('Delete this task? This cannot be undone.')) return;
+  postJSON(`/delete_task/${id}`, {}).then(r => {
+    if (r.success) {
+      document.getElementById(`row-${id}`)?.remove();
+      showToast('Task deleted');
+    }
+  });
+}
+
+// ── Evidence ─────────────────────────────────────────────────────────────────
+function loadEvidence(taskId) {
+  fetch(`/evidence/${taskId}`)
+    .then(r => r.json())
+    .then(files => {
+      const el = document.getElementById(`ev-list-${taskId}`);
+      if (!files.length) {
+        el.innerHTML = '<span class="text-muted small">No files uploaded yet.</span>';
+        return;
+      }
+      const fmt = b => b < 1024 ? `${b} B` : b < 1048576 ? `${(b/1024).toFixed(1)} KB` : `${(b/1048576).toFixed(1)} MB`;
+      el.innerHTML = files.map(f => `
+        <div class="d-flex align-items-center justify-content-between py-1 border-bottom">
+          <a href="/download_evidence/${f.id}" class="small text-truncate me-2"
+             style="max-width:200px;" title="${f.original_name}">
+            <i class="fas fa-file me-1 text-muted"></i>${f.original_name}
+            <span class="text-muted ms-1">(${fmt(f.file_size||0)})</span>
+          </a>
+          <button class="btn btn-xs btn-outline-danger flex-shrink-0"
+                  onclick="deleteEvidence(${f.id}, ${taskId})">
+            <i class="fas fa-trash"></i>
+          </button>
+        </div>`).join('');
+    });
+}
+
+function uploadEvidence(taskId, input) {
+  const fd = new FormData();
+  Array.from(input.files).forEach(f => fd.append('files', f));
+  fetch(`/upload_evidence/${taskId}`, { method: 'POST', body: fd })
+    .then(r => r.json())
+    .then(r => {
+      if (r.success) {
+        showToast(`${r.count} file(s) uploaded`);
+        loadEvidence(taskId);
+        updateEvidenceBadge(taskId, r.total);
+      } else { showToast(r.error, 'error'); }
+      input.value = '';
+    });
+}
+
+function deleteEvidence(evId, taskId) {
+  if (!confirm('Delete this file?')) return;
+  postJSON(`/delete_evidence/${evId}`, {}).then(r => {
+    if (r.success) {
+      showToast('File deleted');
+      loadEvidence(taskId);
+      updateEvidenceBadge(taskId, r.total);
+    }
+  });
+}
+
+function updateEvidenceBadge(taskId, total) {
+  document.querySelectorAll(`.ev-badge-${taskId}`).forEach(b => {
+    b.textContent = total;
+    b.className   = b.className.replace(/bg-\w+/g, total > 0 ? 'bg-info' : 'bg-secondary');
+  });
+}
+
+// ── Custom columns ────────────────────────────────────────────────────────────
+function toggleSelectOpts() {
+  const show = document.getElementById('nc_type').value === 'select';
+  document.getElementById('nc_opts_group').classList.toggle('d-none', !show);
+}
+
+function addCol() {
+  const name = document.getElementById('nc_name').value.trim();
+  const type = document.getElementById('nc_type').value;
+  const opts = (document.getElementById('nc_options').value || '')
+    .split(',').map(s => s.trim()).filter(Boolean);
+  if (!name) { alert('Column name is required.'); return; }
+  postJSON('/custom_columns/add', { name, col_type: type, options: opts }).then(r => {
+    if (r.success) { showToast('Column added – reloading…'); setTimeout(() => location.reload(), 900); }
+    else showToast(r.error, 'error');
+  });
+}
+
+function renameColPrompt(colId, currentName) {
+  const newName = prompt(`Rename column "${currentName}" to:`, currentName);
+  if (!newName || newName === currentName) return;
+  postJSON(`/custom_columns/rename/${colId}`, { name: newName }).then(r => {
+    if (r.success) { showToast('Renamed – reloading…'); setTimeout(() => location.reload(), 900); }
+    else showToast(r.error, 'error');
+  });
+}
+
+function deleteCol(colId, name) {
+  if (!confirm(`Delete column "${name}" and all its data? This cannot be undone.`)) return;
+  postJSON(`/custom_columns/delete/${colId}`, {}).then(r => {
+    if (r.success) { showToast('Column deleted – reloading…'); setTimeout(() => location.reload(), 900); }
+  });
+}
+
+// ── Bulk actions ─────────────────────────────────────────────────────────────
+document.getElementById('selectAll').addEventListener('change', function () {
+  document.querySelectorAll('.task-cb').forEach(cb => cb.checked = this.checked);
+  updateBulkBar();
+});
+function updateBulkBar() {
+  const n = document.querySelectorAll('.task-cb:checked').length;
+  document.getElementById('bulkCount').textContent = `${n} selected`;
+  document.getElementById('bulkBar').classList.toggle('d-none', n === 0);
+}
+function clearSelection() {
+  document.querySelectorAll('.task-cb, #selectAll').forEach(cb => cb.checked = false);
+  updateBulkBar();
+}
+function applyBulk() {
+  const ids     = Array.from(document.querySelectorAll('.task-cb:checked')).map(cb => +cb.value);
+  const status  = document.getElementById('bulkStatus').value;
+  const dueDate = document.getElementById('bulkDueDate').value;
+  if (!status && !dueDate) { alert('Set a status or due date first.'); return; }
+  postJSON('/bulk_update', { task_ids: ids, status, due_date: dueDate }).then(r => {
+    if (r.success) { showToast(`${ids.length} task(s) updated`); setTimeout(() => location.reload(), 1000); }
+  });
+}
+
+// ── Reminders ────────────────────────────────────────────────────────────────
+function sendReminder(id, preparer) {
+  if (!confirm(`Send reminder email to ${preparer}?`)) return;
+  postJSON(`/send_reminder/${id}`, {}).then(r =>
+    showToast(r.success ? r.message : r.error, r.success ? 'success' : 'error'));
+}
+function sendBulkReminders(status) {
+  const n = TASKS.filter(t => t.status === status).length;
+  if (!n) { showToast(`No ${status} tasks.`, 'warning'); return; }
+  if (!confirm(`Send reminders for ${n} "${status}" task(s)?`)) return;
+  postJSON('/send_reminders_bulk', { status }).then(r =>
+    showToast(r.success ? r.message : r.error, r.success ? 'success' : 'error'));
+}
+
+// ── Roll forward ──────────────────────────────────────────────────────────────
+function rollForward() {
+  postJSON('/roll_forward', {}).then(r => {
+    if (r.success) {
+      bootstrap.Modal.getInstance(document.getElementById('rollModal')).hide();
+      showToast(`"${r.saved_period}" saved. Now in ${r.next_period} – reloading…`);
+      setTimeout(() => location.assign('/'), 1500);
+    } else {
+      showToast(r.error, 'error');
+    }
+  });
+}
+
+// ── Period management ─────────────────────────────────────────────────────────
+function deletePeriod(periodId, name) {
+  if (!confirm(`Permanently delete "${name}" and all its saved snapshots?\n\nThis cannot be undone.`)) return;
+  postJSON(`/period/delete/${periodId}`, {}).then(r => {
+    if (r.success) {
+      document.getElementById(`period-row-${periodId}`)?.remove();
+      showToast(`"${name}" deleted`);
+    } else {
+      showToast(r.error, 'error');
+    }
+  });
+}
+
+function reopenPeriod(periodId, name) {
+  if (!confirm(
+    `Reopen "${name}"?\n\n` +
+    `• The current live data will be saved as a snapshot for the active period.\n` +
+    `• All tasks will be restored to the "${name}" state.\n\n` +
+    `Continue?`
+  )) return;
+  postJSON(`/period/reopen/${periodId}`, {}).then(r => {
+    if (r.success) {
+      bootstrap.Modal.getInstance(document.getElementById('periodMgmtModal')).hide();
+      showToast(`Reopened "${r.period_name}" — reloading…`);
+      setTimeout(() => location.assign('/'), 1200);
+    } else {
+      showToast(r.error, 'error');
+    }
+  });
+}
+</script>
+{% endblock %}
