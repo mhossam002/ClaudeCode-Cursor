@@ -1,0 +1,1864 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PREVAIL by Songbird Health Sciences</title>
+  <style>
+    /* ── Reset & Base ─────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --burgundy:    #4A1520;
+      --burgundy-mid:#7B2D3E;
+      --orange:      #D4541A;
+      --orange-light:#E8722A;
+      --cream:       #EDE8DF;
+      --cream-dark:  #DDD6CB;
+      --sand:        #C9BFB0;
+      --dark:        #1A1A1A;
+      --white:       #FFFFFF;
+      --font-serif:  'Georgia', 'Times New Roman', serif;
+      --font-sans:   'Helvetica Neue', 'Arial', sans-serif;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--cream);
+      color: var(--dark);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    h1, h2, h3, h4 { font-family: var(--font-serif); line-height: 1.15; }
+
+    a { color: inherit; text-decoration: none; }
+
+    img { display: block; max-width: 100%; }
+
+    /* ── NAVIGATION ───────────────────────────────────────────── */
+    nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1.25rem 3rem;
+      background: rgba(74, 21, 32, 0.95);
+      backdrop-filter: blur(8px);
+    }
+
+    .nav-logo {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .nav-logo .bird-icon {
+      width: 32px;
+      height: 32px;
+    }
+
+    .nav-logo-text {
+      font-family: var(--font-sans);
+      font-size: 1.2rem;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      color: var(--white);
+      text-transform: uppercase;
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 2.5rem;
+      list-style: none;
+    }
+
+    .nav-links a {
+      font-size: 0.8rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.75);
+      transition: color 0.2s;
+    }
+
+    .nav-links a:hover { color: var(--orange-light); }
+
+    .nav-cta {
+      background: var(--orange);
+      color: var(--white) !important;
+      padding: 0.55rem 1.4rem;
+      border-radius: 2px;
+      transition: background 0.2s !important;
+    }
+
+    .nav-cta:hover { background: var(--orange-light) !important; }
+
+    /* ── HERO ─────────────────────────────────────────────────── */
+    .hero {
+      min-height: 100vh;
+      background: var(--burgundy);
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      align-items: center;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .hero::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at 60% 50%, rgba(212,84,26,0.12) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .hero-content {
+      padding: 8rem 3rem 4rem 5rem;
+      position: relative;
+      z-index: 2;
+    }
+
+    .hero-eyebrow {
+      font-size: 0.7rem;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: var(--orange-light);
+      margin-bottom: 1.5rem;
+    }
+
+    .hero-title {
+      font-size: clamp(3rem, 5.5vw, 5.5rem);
+      font-weight: 400;
+      color: var(--white);
+      line-height: 1.0;
+      margin-bottom: 1.5rem;
+      letter-spacing: -0.02em;
+    }
+
+    .hero-title em {
+      font-style: italic;
+      color: var(--orange-light);
+    }
+
+    .hero-subtitle {
+      font-size: 1.1rem;
+      color: rgba(255,255,255,0.72);
+      max-width: 440px;
+      line-height: 1.7;
+      margin-bottom: 2.5rem;
+    }
+
+    .hero-actions {
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .btn-primary {
+      display: inline-block;
+      background: var(--orange);
+      color: var(--white);
+      font-size: 0.78rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      padding: 1rem 2.2rem;
+      border-radius: 2px;
+      transition: background 0.2s, transform 0.2s;
+    }
+
+    .btn-primary:hover {
+      background: var(--orange-light);
+      transform: translateY(-1px);
+    }
+
+    .btn-ghost {
+      display: inline-block;
+      color: rgba(255,255,255,0.7);
+      font-size: 0.78rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      padding: 1rem 0;
+      border-bottom: 1px solid rgba(255,255,255,0.3);
+      transition: color 0.2s, border-color 0.2s;
+    }
+
+    .btn-ghost:hover {
+      color: var(--white);
+      border-color: var(--white);
+    }
+
+    .hero-stat {
+      margin-top: 4rem;
+      padding-top: 2rem;
+      border-top: 1px solid rgba(255,255,255,0.12);
+      display: flex;
+      gap: 3rem;
+    }
+
+    .stat-item .stat-num {
+      font-family: var(--font-serif);
+      font-size: 2.4rem;
+      color: var(--orange-light);
+      line-height: 1;
+    }
+
+    .stat-item .stat-label {
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      color: rgba(255,255,255,0.5);
+      margin-top: 0.3rem;
+      text-transform: uppercase;
+      max-width: 120px;
+    }
+
+    /* Hero visual side */
+    .hero-visual {
+      position: relative;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .product-circle {
+      width: 480px;
+      height: 480px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 35%, rgba(212,84,26,0.18) 0%, rgba(74,21,32,0.3) 100%);
+      border: 1px solid rgba(255,255,255,0.08);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: visible;
+    }
+
+    /* Bottle image sizing */
+    .bottle-img {
+      max-height: 540px;
+      width: auto;
+      filter: drop-shadow(0 40px 60px rgba(0,0,0,0.6));
+    }
+
+    .bottle-img-lg {
+      max-height: 480px;
+      width: auto;
+      filter: drop-shadow(0 60px 80px rgba(0,0,0,0.7));
+    }
+
+    /* Logo image sizing */
+    .nav-logo-img {
+      height: 28px;
+      width: auto;
+    }
+
+    .footer-logo-img {
+      height: 22px;
+      width: auto;
+      filter: brightness(0) invert(0.6);
+      margin-bottom: 1rem;
+      display: block;
+    }
+
+    .product-circle::before {
+      content: '';
+      position: absolute;
+      inset: -20px;
+      border-radius: 50%;
+      border: 1px dashed rgba(212,84,26,0.25);
+      animation: spin 60s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .hero-badge {
+      position: absolute;
+      bottom: 2rem;
+      right: 2rem;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 50%;
+      width: 110px;
+      height: 110px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 1rem;
+    }
+
+    .hero-badge .badge-num {
+      font-size: 1.6rem;
+      font-family: var(--font-serif);
+      color: var(--orange-light);
+      line-height: 1;
+    }
+
+    .hero-badge .badge-text {
+      font-size: 0.45rem;
+      letter-spacing: 0.08em;
+      color: rgba(255,255,255,0.5);
+      text-transform: uppercase;
+      margin-top: 0.3rem;
+      line-height: 1.4;
+    }
+
+    /* ── MARQUEE BAR ──────────────────────────────────────────── */
+    .marquee-bar {
+      background: var(--orange);
+      overflow: hidden;
+      padding: 0.9rem 0;
+    }
+
+    .marquee-track {
+      display: flex;
+      gap: 0;
+      white-space: nowrap;
+      animation: marquee 30s linear infinite;
+    }
+
+    @keyframes marquee {
+      from { transform: translateX(0); }
+      to   { transform: translateX(-50%); }
+    }
+
+    .marquee-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 1.5rem;
+      padding: 0 2.5rem;
+      font-size: 0.7rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--white);
+      font-weight: 600;
+    }
+
+    .marquee-dot {
+      width: 4px;
+      height: 4px;
+      background: rgba(255,255,255,0.5);
+      border-radius: 50%;
+    }
+
+    /* ── SECTION BASE ─────────────────────────────────────────── */
+    section { padding: 7rem 5rem; }
+
+    .section-tag {
+      font-size: 0.7rem;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--orange);
+      margin-bottom: 1.25rem;
+      font-weight: 600;
+    }
+
+    .section-title {
+      font-size: clamp(2rem, 3.5vw, 3.2rem);
+      font-weight: 400;
+      line-height: 1.15;
+      max-width: 640px;
+    }
+
+    .section-body {
+      font-size: 1.05rem;
+      color: #444;
+      line-height: 1.8;
+      max-width: 600px;
+    }
+
+    /* ── THE PROBLEM ──────────────────────────────────────────── */
+    .problem-section {
+      background: var(--white);
+    }
+
+    .problem-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 5rem;
+      align-items: start;
+    }
+
+    .problem-left .section-title {
+      margin-bottom: 2rem;
+    }
+
+    .problem-left .section-body {
+      margin-bottom: 2rem;
+    }
+
+    .problem-stat-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1.5rem;
+      margin-top: 3rem;
+      padding-top: 3rem;
+      border-top: 1px solid var(--cream-dark);
+    }
+
+    .p-stat .p-num {
+      font-family: var(--font-serif);
+      font-size: 2.6rem;
+      color: var(--burgundy);
+      line-height: 1;
+    }
+
+    .p-stat .p-label {
+      font-size: 0.78rem;
+      color: #777;
+      margin-top: 0.4rem;
+      line-height: 1.4;
+    }
+
+    .problem-right {
+      padding-top: 1rem;
+    }
+
+    .gap-cards {
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    .gap-card {
+      padding: 2rem;
+      border-radius: 4px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .gap-card::before {
+      content: '';
+      position: absolute;
+      left: 0; top: 0; bottom: 0;
+      width: 3px;
+    }
+
+    .gap-card.pharma {
+      background: #f7f3ef;
+    }
+
+    .gap-card.pharma::before { background: var(--burgundy-mid); }
+
+    .gap-card.supp {
+      background: #f7f3ef;
+    }
+
+    .gap-card.supp::before { background: var(--sand); }
+
+    .gap-card.prevail {
+      background: var(--burgundy);
+      color: var(--white);
+    }
+
+    .gap-card.prevail::before { background: var(--orange); }
+
+    .gap-card-label {
+      font-size: 0.65rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      font-weight: 700;
+      margin-bottom: 0.6rem;
+    }
+
+    .gap-card.pharma .gap-card-label,
+    .gap-card.supp .gap-card-label { color: #999; }
+    .gap-card.prevail .gap-card-label { color: var(--orange-light); }
+
+    .gap-card h4 {
+      font-size: 1.1rem;
+      margin-bottom: 0.5rem;
+      font-weight: 600;
+      font-family: var(--font-sans);
+    }
+
+    .gap-card.pharma h4,
+    .gap-card.supp h4 { color: var(--dark); }
+    .gap-card.prevail h4 { color: var(--white); }
+
+    .gap-card p {
+      font-size: 0.88rem;
+      line-height: 1.65;
+    }
+
+    .gap-card.pharma p,
+    .gap-card.supp p { color: #666; }
+    .gap-card.prevail p { color: rgba(255,255,255,0.75); }
+
+    /* ── SCIENCE ──────────────────────────────────────────────── */
+    .science-section {
+      background: var(--burgundy);
+      color: var(--white);
+    }
+
+    .science-header {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4rem;
+      align-items: start;
+      margin-bottom: 5rem;
+    }
+
+    .science-header .section-title {
+      color: var(--white);
+    }
+
+    .science-header .section-body {
+      color: rgba(255,255,255,0.7);
+      padding-top: 1rem;
+    }
+
+    .sintax-steps {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1px;
+      background: rgba(255,255,255,0.08);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .sintax-step {
+      background: rgba(255,255,255,0.03);
+      padding: 2.5rem 2rem;
+      position: relative;
+    }
+
+    .step-num {
+      font-family: var(--font-serif);
+      font-size: 3.5rem;
+      color: rgba(212,84,26,0.2);
+      line-height: 1;
+      margin-bottom: 1.5rem;
+    }
+
+    .step-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: rgba(212,84,26,0.15);
+      border: 1px solid rgba(212,84,26,0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 1.25rem;
+    }
+
+    .step-icon svg { width: 20px; height: 20px; stroke: var(--orange-light); fill: none; stroke-width: 1.5; }
+
+    .sintax-step h4 {
+      font-size: 0.9rem;
+      font-family: var(--font-sans);
+      font-weight: 600;
+      color: var(--white);
+      margin-bottom: 0.75rem;
+      letter-spacing: 0.02em;
+    }
+
+    .sintax-step p {
+      font-size: 0.85rem;
+      color: rgba(255,255,255,0.55);
+      line-height: 1.7;
+    }
+
+    .science-callout {
+      margin-top: 4rem;
+      padding: 3rem;
+      background: rgba(212,84,26,0.1);
+      border: 1px solid rgba(212,84,26,0.2);
+      border-radius: 4px;
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 3rem;
+      align-items: center;
+    }
+
+    .callout-num {
+      font-family: var(--font-serif);
+      font-size: 5rem;
+      color: var(--orange-light);
+      line-height: 1;
+      white-space: nowrap;
+    }
+
+    .callout-text h3 {
+      font-size: 1.4rem;
+      color: var(--white);
+      margin-bottom: 0.75rem;
+    }
+
+    .callout-text p {
+      font-size: 0.92rem;
+      color: rgba(255,255,255,0.65);
+      line-height: 1.75;
+    }
+
+    /* ── PRODUCT ──────────────────────────────────────────────── */
+    .product-section {
+      background: var(--cream);
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+      padding: 0;
+      align-items: stretch;
+    }
+
+    .product-visual-side {
+      background: var(--burgundy);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 680px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .product-visual-side::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at 40% 40%, rgba(212,84,26,0.15) 0%, transparent 65%);
+    }
+
+    .product-display {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .product-tagline {
+      font-size: 0.65rem;
+      letter-spacing: 0.2em;
+      color: rgba(255,255,255,0.4);
+      text-transform: uppercase;
+      text-align: center;
+      margin-top: 2rem;
+    }
+
+    .product-info-side {
+      padding: 6rem 5rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .product-info-side .section-title {
+      margin-bottom: 1.5rem;
+    }
+
+    .product-info-side .section-body {
+      margin-bottom: 3rem;
+    }
+
+    .product-features {
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+      margin-bottom: 3rem;
+    }
+
+    .feat-item {
+      display: grid;
+      grid-template-columns: 36px 1fr;
+      gap: 1rem;
+      align-items: start;
+    }
+
+    .feat-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: rgba(212,84,26,0.1);
+      border: 1px solid rgba(212,84,26,0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .feat-icon svg { width: 16px; height: 16px; stroke: var(--orange); fill: none; stroke-width: 1.5; }
+
+    .feat-text h5 {
+      font-size: 0.88rem;
+      font-family: var(--font-sans);
+      font-weight: 600;
+      color: var(--dark);
+      margin-bottom: 0.2rem;
+    }
+
+    .feat-text p {
+      font-size: 0.82rem;
+      color: #777;
+      line-height: 1.6;
+    }
+
+    .product-disclaimer {
+      font-size: 0.7rem;
+      color: #aaa;
+      line-height: 1.6;
+      padding-top: 2rem;
+      border-top: 1px solid var(--cream-dark);
+    }
+
+    /* ── CLINICAL ─────────────────────────────────────────────── */
+    .clinical-section {
+      background: var(--white);
+    }
+
+    .clinical-header {
+      text-align: center;
+      max-width: 700px;
+      margin: 0 auto 5rem;
+    }
+
+    .clinical-header .section-title {
+      max-width: 100%;
+      margin: 0.75rem auto 1.5rem;
+    }
+
+    .clinical-header .section-body {
+      max-width: 100%;
+      text-align: center;
+    }
+
+    .evidence-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 2px;
+      background: var(--cream-dark);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-bottom: 4rem;
+    }
+
+    .evidence-card {
+      background: var(--white);
+      padding: 3rem 2.5rem;
+      text-align: center;
+      position: relative;
+    }
+
+    .evidence-num {
+      font-family: var(--font-serif);
+      font-size: 3.5rem;
+      color: var(--burgundy);
+      line-height: 1;
+      margin-bottom: 0.75rem;
+    }
+
+    .evidence-num sup {
+      font-size: 1.5rem;
+      vertical-align: super;
+    }
+
+    .evidence-label {
+      font-size: 0.82rem;
+      color: #666;
+      line-height: 1.5;
+      max-width: 160px;
+      margin: 0 auto;
+    }
+
+    .conditions-list {
+      background: #f7f3ef;
+      border-radius: 4px;
+      padding: 3rem;
+      text-align: center;
+    }
+
+    .conditions-list h4 {
+      font-family: var(--font-sans);
+      font-size: 0.7rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--orange);
+      font-weight: 600;
+      margin-bottom: 1.5rem;
+    }
+
+    .condition-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.6rem;
+      justify-content: center;
+    }
+
+    .condition-tag {
+      background: var(--white);
+      border: 1px solid var(--cream-dark);
+      border-radius: 100px;
+      padding: 0.4rem 1.1rem;
+      font-size: 0.82rem;
+      color: #555;
+    }
+
+    .condition-tag.highlight {
+      background: var(--burgundy);
+      color: var(--white);
+      border-color: var(--burgundy);
+    }
+
+    /* ── OCTAVE ───────────────────────────────────────────────── */
+    .octave-section {
+      background: var(--cream);
+    }
+
+    .octave-header {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4rem;
+      align-items: start;
+      margin-bottom: 5rem;
+    }
+
+    .octave-header .section-title { margin-bottom: 1.25rem; }
+    .octave-header .section-body { color: #555; }
+
+    .pillars-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1rem;
+    }
+
+    .pillar-card {
+      background: var(--white);
+      border: 1px solid var(--cream-dark);
+      border-radius: 4px;
+      padding: 1.75rem 1.5rem;
+      text-align: center;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .pillar-card:hover {
+      border-color: var(--orange);
+      box-shadow: 0 4px 20px rgba(212,84,26,0.08);
+    }
+
+    .pillar-card.active {
+      background: var(--burgundy);
+      border-color: var(--burgundy);
+    }
+
+    .pillar-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: rgba(212,84,26,0.08);
+      border: 1px solid rgba(212,84,26,0.15);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 1rem;
+    }
+
+    .pillar-card.active .pillar-icon {
+      background: rgba(212,84,26,0.2);
+      border-color: rgba(212,84,26,0.4);
+    }
+
+    .pillar-icon svg { width: 20px; height: 20px; stroke: var(--orange); fill: none; stroke-width: 1.5; }
+
+    .pillar-card h5 {
+      font-family: var(--font-sans);
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--dark);
+      letter-spacing: 0.04em;
+    }
+
+    .pillar-card.active h5 { color: var(--white); }
+
+    /* ── CREDIBILITY ──────────────────────────────────────────── */
+    .credibility-section {
+      background: var(--white);
+      padding: 7rem 5rem;
+    }
+
+    .credibility-inner {
+      display: grid;
+      grid-template-columns: 1fr 1.2fr;
+      gap: 6rem;
+      align-items: center;
+    }
+
+    .credibility-inner .section-title { margin-bottom: 1.5rem; }
+    .credibility-inner .section-body { margin-bottom: 3rem; }
+
+    .trust-items {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    .trust-item {
+      display: grid;
+      grid-template-columns: 60px 1fr;
+      gap: 1.25rem;
+      align-items: start;
+    }
+
+    .trust-badge {
+      background: var(--cream);
+      border: 1px solid var(--cream-dark);
+      border-radius: 4px;
+      width: 60px;
+      height: 60px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 0.4rem;
+    }
+
+    .trust-badge .badge-val {
+      font-family: var(--font-serif);
+      font-size: 1.2rem;
+      color: var(--burgundy);
+      line-height: 1;
+    }
+
+    .trust-badge .badge-sub {
+      font-size: 0.45rem;
+      letter-spacing: 0.06em;
+      color: #999;
+      text-transform: uppercase;
+      line-height: 1.3;
+      margin-top: 2px;
+    }
+
+    .trust-content h5 {
+      font-family: var(--font-sans);
+      font-size: 0.92rem;
+      font-weight: 600;
+      margin-bottom: 0.3rem;
+      color: var(--dark);
+    }
+
+    .trust-content p {
+      font-size: 0.82rem;
+      color: #777;
+      line-height: 1.6;
+    }
+
+    .credibility-right {
+      background: var(--burgundy);
+      border-radius: 4px;
+      padding: 4rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .credibility-right::before {
+      content: '';
+      position: absolute;
+      top: -60px;
+      right: -60px;
+      width: 250px;
+      height: 250px;
+      border-radius: 50%;
+      background: rgba(212,84,26,0.1);
+      pointer-events: none;
+    }
+
+    .big-quote {
+      font-family: var(--font-serif);
+      font-size: clamp(1.4rem, 2vw, 1.8rem);
+      color: var(--white);
+      line-height: 1.5;
+      margin-bottom: 2.5rem;
+      position: relative;
+      z-index: 1;
+    }
+
+    .big-quote::before {
+      content: '\201C';
+      font-size: 5rem;
+      color: var(--orange);
+      opacity: 0.3;
+      position: absolute;
+      top: -2rem;
+      left: -1.5rem;
+      line-height: 1;
+      font-family: Georgia, serif;
+    }
+
+    .quote-source {
+      font-size: 0.75rem;
+      letter-spacing: 0.12em;
+      color: rgba(255,255,255,0.45);
+      text-transform: uppercase;
+      position: relative;
+      z-index: 1;
+    }
+
+    .mayo-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-top: 2rem;
+      padding: 1rem 1.5rem;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 4px;
+    }
+
+    .mayo-icon {
+      width: 36px;
+      height: 36px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1rem;
+    }
+
+    .mayo-text {
+      font-size: 0.75rem;
+      letter-spacing: 0.05em;
+      color: rgba(255,255,255,0.6);
+    }
+
+    .mayo-text strong {
+      display: block;
+      color: var(--white);
+      font-size: 0.82rem;
+      font-weight: 600;
+    }
+
+    /* ── MISSION ──────────────────────────────────────────────── */
+    .mission-section {
+      background: var(--cream);
+      text-align: center;
+      padding: 8rem 5rem;
+    }
+
+    .mission-section .section-tag { justify-content: center; display: block; }
+    .mission-section .section-title {
+      margin: 0.75rem auto 1.75rem;
+      max-width: 800px;
+      font-size: clamp(2rem, 3.5vw, 3.4rem);
+    }
+
+    .mission-section .section-body {
+      max-width: 650px;
+      margin: 0 auto 4rem;
+      text-align: center;
+    }
+
+    .revolution-pillars {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 2px;
+      background: var(--cream-dark);
+      border-radius: 4px;
+      overflow: hidden;
+      text-align: left;
+    }
+
+    .rev-pillar {
+      background: var(--white);
+      padding: 2.5rem 2rem;
+    }
+
+    .rev-num {
+      font-family: var(--font-serif);
+      font-size: 2rem;
+      color: var(--orange);
+      margin-bottom: 1rem;
+    }
+
+    .rev-pillar h5 {
+      font-family: var(--font-sans);
+      font-size: 0.88rem;
+      font-weight: 600;
+      margin-bottom: 0.6rem;
+      color: var(--dark);
+    }
+
+    .rev-pillar p {
+      font-size: 0.82rem;
+      color: #777;
+      line-height: 1.65;
+    }
+
+    /* ── CTA ──────────────────────────────────────────────────── */
+    .cta-section {
+      background: var(--burgundy);
+      padding: 8rem 5rem;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .cta-section::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at 50% 0%, rgba(212,84,26,0.2) 0%, transparent 65%);
+      pointer-events: none;
+    }
+
+    .cta-section .section-title {
+      color: var(--white);
+      margin: 0.75rem auto 1.5rem;
+      max-width: 700px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .cta-section .section-body {
+      color: rgba(255,255,255,0.65);
+      max-width: 540px;
+      margin: 0 auto 3rem;
+      text-align: center;
+      position: relative;
+      z-index: 1;
+    }
+
+    .cta-actions {
+      display: flex;
+      gap: 1.25rem;
+      justify-content: center;
+      align-items: center;
+      flex-wrap: wrap;
+      position: relative;
+      z-index: 1;
+    }
+
+    .btn-white {
+      background: var(--white);
+      color: var(--burgundy);
+      font-size: 0.78rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      padding: 1rem 2.2rem;
+      border-radius: 2px;
+      font-weight: 600;
+      transition: background 0.2s, transform 0.2s;
+    }
+
+    .btn-white:hover {
+      background: var(--cream);
+      transform: translateY(-1px);
+    }
+
+    .btn-outline-white {
+      color: rgba(255,255,255,0.75);
+      font-size: 0.78rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      padding: 1rem 0;
+      border-bottom: 1px solid rgba(255,255,255,0.3);
+      transition: color 0.2s, border-color 0.2s;
+    }
+
+    .btn-outline-white:hover {
+      color: var(--white);
+      border-color: var(--white);
+    }
+
+    /* ── FOOTER ───────────────────────────────────────────────── */
+    footer {
+      background: #0F0509;
+      color: rgba(255,255,255,0.4);
+      padding: 4rem 5rem 3rem;
+    }
+
+    .footer-grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr 1fr;
+      gap: 3rem;
+      padding-bottom: 3rem;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      margin-bottom: 2rem;
+    }
+
+    .footer-brand .nav-logo-text {
+      font-size: 1.1rem;
+      margin-bottom: 1rem;
+      display: block;
+    }
+
+    .footer-brand p {
+      font-size: 0.82rem;
+      line-height: 1.75;
+      color: rgba(255,255,255,0.35);
+      max-width: 280px;
+    }
+
+    .footer-col h6 {
+      font-size: 0.65rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.55);
+      margin-bottom: 1.25rem;
+      font-family: var(--font-sans);
+      font-weight: 600;
+    }
+
+    .footer-col ul {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.7rem;
+    }
+
+    .footer-col ul a {
+      font-size: 0.82rem;
+      color: rgba(255,255,255,0.35);
+      transition: color 0.2s;
+    }
+
+    .footer-col ul a:hover { color: rgba(255,255,255,0.7); }
+
+    .footer-bottom {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .footer-bottom p {
+      font-size: 0.72rem;
+    }
+
+    .footer-disclaimer {
+      font-size: 0.65rem;
+      color: rgba(255,255,255,0.2);
+      max-width: 600px;
+      text-align: right;
+      line-height: 1.6;
+    }
+
+    /* ── RESPONSIVE ───────────────────────────────────────────── */
+    @media (max-width: 1024px) {
+      section { padding: 5rem 3rem; }
+      nav { padding: 1rem 2rem; }
+
+      .hero {
+        grid-template-columns: 1fr;
+        min-height: auto;
+      }
+
+      .hero-content {
+        padding: 8rem 3rem 4rem;
+        grid-row: 1;
+      }
+
+      .hero-visual {
+        display: none;
+      }
+
+      .problem-grid,
+      .science-header,
+      .octave-header,
+      .credibility-inner,
+      .product-section {
+        grid-template-columns: 1fr;
+      }
+
+      .product-visual-side { min-height: 480px; }
+      .product-info-side { padding: 4rem 3rem; }
+
+      .sintax-steps,
+      .evidence-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .pillars-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .revolution-pillars {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .footer-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    @media (max-width: 640px) {
+      section { padding: 4rem 1.5rem; }
+      nav { padding: 1rem 1.5rem; }
+      .nav-links { display: none; }
+
+      .hero-content { padding: 7rem 1.5rem 4rem; }
+
+      .problem-stat-row { grid-template-columns: 1fr 1fr; }
+
+      .pillars-grid { grid-template-columns: repeat(2, 1fr); }
+
+      .revolution-pillars { grid-template-columns: 1fr; }
+
+      .hero-stat { gap: 2rem; }
+
+      .footer-grid { grid-template-columns: 1fr; }
+      .footer-disclaimer { text-align: left; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ── NAVIGATION ──────────────────────────────────────────────── -->
+  <nav>
+    <div class="nav-logo">
+      <img src="assets/songbird-logo.png" alt="Songbird" class="nav-logo-img">
+    </div>
+    <ul class="nav-links">
+      <li><a href="#science">The Science</a></li>
+      <li><a href="#prevail">PREVAIL</a></li>
+      <li><a href="#clinical">Clinical Data</a></li>
+      <li><a href="#octave">Octave</a></li>
+      <li><a href="#about">About</a></li>
+      <li><a href="#shop" class="nav-cta">Shop Now</a></li>
+    </ul>
+  </nav>
+
+  <!-- ── HERO ────────────────────────────────────────────────────── -->
+  <section class="hero">
+    <div class="hero-content">
+      <p class="hero-eyebrow">Introducing the World's First Immunobiotic</p>
+      <h1 class="hero-title">Immune harmony,<br><em>each day.</em></h1>
+      <p class="hero-subtitle">
+        PREVAIL by Songbird is the world's first immunobiotic powered by
+        <em>Prevotella histicola</em> — a clinically tested microbe that activates
+        your immune system's own anti-inflammatory pathways.
+      </p>
+      <div class="hero-actions">
+        <a href="#shop" class="btn-primary">Shop PREVAIL</a>
+        <a href="#science" class="btn-ghost">Learn the Science</a>
+      </div>
+      <div class="hero-stat">
+        <div class="stat-item">
+          <div class="stat-num">$350M</div>
+          <div class="stat-label">In biotech investment & research</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-num">225</div>
+          <div class="stat-label">Patients in Phase 2 clinical trial</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-num">90%</div>
+          <div class="stat-label">Of gut immune system reached</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="hero-visual">
+      <div class="product-circle">
+        <img src="assets/prevail-bottle-3-nobg.png" alt="PREVAIL" class="bottle-img">
+      </div>
+      <div class="hero-badge">
+        <div class="badge-num">70%</div>
+        <div class="badge-text">of your immune<br>system lives<br>in your gut</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── MARQUEE ──────────────────────────────────────────────────── -->
+  <div class="marquee-bar" aria-hidden="true">
+    <div class="marquee-track">
+      <!-- repeated twice for seamless loop -->
+      <span class="marquee-item">World's First Immunobiotic <span class="marquee-dot"></span></span>
+      <span class="marquee-item">Powered by <em>Prevotella Histicola</em> <span class="marquee-dot"></span></span>
+      <span class="marquee-item">Founded on Mayo Clinic Research <span class="marquee-dot"></span></span>
+      <span class="marquee-item">$350M Biotech Investment <span class="marquee-dot"></span></span>
+      <span class="marquee-item">Phase 2 Clinical Trial <span class="marquee-dot"></span></span>
+      <span class="marquee-item">Immune Harmony, Each Day <span class="marquee-dot"></span></span>
+      <span class="marquee-item">World's First Immunobiotic <span class="marquee-dot"></span></span>
+      <span class="marquee-item">Powered by <em>Prevotella Histicola</em> <span class="marquee-dot"></span></span>
+      <span class="marquee-item">Founded on Mayo Clinic Research <span class="marquee-dot"></span></span>
+      <span class="marquee-item">$350M Biotech Investment <span class="marquee-dot"></span></span>
+      <span class="marquee-item">Phase 2 Clinical Trial <span class="marquee-dot"></span></span>
+      <span class="marquee-item">Immune Harmony, Each Day <span class="marquee-dot"></span></span>
+    </div>
+  </div>
+
+  <!-- ── THE PROBLEM ──────────────────────────────────────────────── -->
+  <section class="problem-section" id="problem">
+    <div class="problem-grid">
+      <div class="problem-left">
+        <p class="section-tag">The Problem</p>
+        <h2 class="section-title">Chronic inflammation is the defining health challenge of our time.</h2>
+        <p class="section-body">
+          Inflammation is essential — it's our body's built-in defense system. But when it lingers
+          longer than it should, it shifts from protective to harmful. Chronic inflammation drives
+          autoimmune disease, cardiovascular disease, metabolic disorders, neurodegeneration, and the
+          gradual loss of resilience that begins long before any diagnosis.
+        </p>
+        <p class="section-body">
+          For most people, it whispers rather than shouts. A slow, heavy feeling in the morning.
+          Joints that ache without obvious reason. A recovery that takes longer than it used to.
+          These are signs that the immune system is starting to fall out of balance — years before
+          traditional medicine would notice.
+        </p>
+        <div class="problem-stat-row">
+          <div class="p-stat">
+            <div class="p-num">60%</div>
+            <div class="p-label">of global deaths linked to chronic inflammation</div>
+          </div>
+          <div class="p-stat">
+            <div class="p-num">5–15</div>
+            <div class="p-label">healthy years stolen from billions of people</div>
+          </div>
+          <div class="p-stat">
+            <div class="p-num">$50B</div>
+            <div class="p-label">supplement market with largely unproven claims</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="problem-right">
+        <div class="gap-cards">
+          <div class="gap-card pharma">
+            <div class="gap-card-label">Option 1</div>
+            <h4>Pharmaceuticals</h4>
+            <p>Reserved only for the most severe cases. The majority of people with chronic inflammation — even those suffering significantly — are classified as "mild to moderate" and left without meaningful support.</p>
+          </div>
+          <div class="gap-card supp">
+            <div class="gap-card-label">Option 2</div>
+            <h4>Supplements</h4>
+            <p>The $50 billion global supplement industry positions itself as the answer for everyone pharma ignores — but most products targeting inflammation rely on heavy marketing with weak or non-existent scientific evidence.</p>
+          </div>
+          <div class="gap-card prevail">
+            <div class="gap-card-label">The Third Way</div>
+            <h4>PREVAIL by Songbird</h4>
+            <p>The world's first immunobiotic. Clinically validated. Non-pharmaceutical. Grounded in decades of research at The Mayo Clinic. A new category built for the people both pharma and supplements have left behind.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── SCIENCE ──────────────────────────────────────────────────── -->
+  <section class="science-section" id="science">
+    <div class="science-header">
+      <div>
+        <p class="section-tag">The Science</p>
+        <h2 class="section-title" style="color: white;">The small intestine is a command center of the immune system.</h2>
+      </div>
+      <div>
+        <p class="section-body" style="padding-top: 2rem;">
+          The small intestine is one of the most immunologically active environments in the body.
+          It is packed with specialized immune cells that constantly sample the outside world,
+          interpret signals from food and microbes, and determine when the immune system
+          should act — and when it should stay calm.
+        </p>
+        <p class="section-body" style="margin-top: 1rem;">
+          This is the Small Intestinal Axis (SINTAX). Songbird focuses here because it is an
+          upstream point of influence — intervening at this level can meaningfully shape
+          immune function throughout the entire body.
+        </p>
+      </div>
+    </div>
+
+    <div class="sintax-steps">
+      <div class="sintax-step">
+        <div class="step-num">01</div>
+        <div class="step-icon">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2"/></svg>
+        </div>
+        <h4>Sample & Process</h4>
+        <p>Specialized immune cells in the small intestine sample microbes and process that information in nearby lymph nodes, acting as the first checkpoint of immune intelligence.</p>
+      </div>
+      <div class="sintax-step">
+        <div class="step-num">02</div>
+        <div class="step-icon">
+          <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        </div>
+        <h4>Activate Peacekeepers</h4>
+        <p>Regulatory T cells (Tregs) — the immune system's peacekeepers — are activated in the lymph nodes. These cells calm excessive inflammation while preserving the body's ability to defend against real threats.</p>
+      </div>
+      <div class="sintax-step">
+        <div class="step-num">03</div>
+        <div class="step-icon">
+          <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/><path d="M8 12l3 3 5-5"/></svg>
+        </div>
+        <h4>Restore Balance</h4>
+        <p>Tregs circulate throughout the body, travelling to sites of inflammation to restore homeostasis — balance — without suppressing immunity. The immune system rebalances itself naturally.</p>
+      </div>
+    </div>
+
+    <div class="science-callout">
+      <div class="callout-num">90%</div>
+      <div class="callout-text">
+        <h3>Of your gut's immune system lives in the small intestine.</h3>
+        <p>
+          This is exactly where PREVAIL's engineered capsule coating delivers
+          <em>Prevotella histicola</em> — hundreds of billions of microbial cells,
+          precisely at the site where 90% of the immune system in our gut resides.
+          This targeting is not incidental. It is the engineering breakthrough that
+          makes PREVAIL possible.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── PRODUCT ──────────────────────────────────────────────────── -->
+  <section class="product-section" id="prevail">
+    <div class="product-visual-side">
+      <div class="product-display">
+        <img src="assets/prevail-bottle-1-nobg.png" alt="PREVAIL" class="bottle-img-lg">
+        <div class="product-tagline">Immune Harmony, Each Day</div>
+      </div>
+    </div>
+
+    <div class="product-info-side">
+      <p class="section-tag">PREVAIL</p>
+      <h2 class="section-title">The world's first immunobiotic.</h2>
+      <p class="section-body">
+        Built on almost a decade of research and manufacturing development in biotech and
+        earlier foundational science at The Mayo Clinic, PREVAIL contains Songbird's
+        proprietary strain of <em>Prevotella histicola</em> — a commensal gut microbe that has
+        been clinically shown to reduce inflammation without suppressing immune function.
+      </p>
+
+      <div class="product-features">
+        <div class="feat-item">
+          <div class="feat-icon">
+            <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          </div>
+          <div class="feat-text">
+            <h5>Clinically Validated</h5>
+            <p>Phase 2, placebo-controlled clinical trial with 225 patients showing statistically significant and lasting reductions in disease severity.</p>
+          </div>
+        </div>
+        <div class="feat-item">
+          <div class="feat-icon">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+          </div>
+          <div class="feat-text">
+            <h5>Once-Daily Capsule</h5>
+            <p>Engineered to release hundreds of billions of microbial cells specifically in the small intestine — where the immune command center lives.</p>
+          </div>
+        </div>
+        <div class="feat-item">
+          <div class="feat-icon">
+            <svg viewBox="0 0 24 24"><path d="M9 12l2 2 4-4"/><path d="M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9 9 4.03 9 9z"/></svg>
+          </div>
+          <div class="feat-text">
+            <h5>Works With Your Immune System</h5>
+            <p>Unlike pharmaceuticals that suppress immunity, PREVAIL activates the body's own anti-inflammatory architecture — restoring balance without overriding your defenses.</p>
+          </div>
+        </div>
+        <div class="feat-item">
+          <div class="feat-icon">
+            <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+          </div>
+          <div class="feat-text">
+            <h5>Proprietary IP Portfolio</h5>
+            <p>Songbird's proprietary strain and delivery system are protected by a robust intellectual property portfolio built over nearly a decade of development.</p>
+          </div>
+        </div>
+      </div>
+
+      <a href="#shop" class="btn-primary">Shop PREVAIL — Get Started Today</a>
+
+      <p class="product-disclaimer">
+        * These statements have not been evaluated by the Food and Drug Administration.
+        This product is not intended to diagnose, treat, cure, or prevent any disease.
+      </p>
+    </div>
+  </section>
+
+  <!-- ── CLINICAL DATA ─────────────────────────────────────────────── -->
+  <section class="clinical-section" id="clinical">
+    <div class="clinical-header">
+      <p class="section-tag">Clinical Evidence</p>
+      <h2 class="section-title">A level of scientific rigor virtually unheard of outside pharmaceuticals.</h2>
+      <p class="section-body">
+        <em>Prevotella histicola</em> has been studied across many inflammatory conditions.
+        The Phase 2 clinical trial results demonstrate what years of research at The Mayo Clinic
+        first revealed: this microbe can meaningfully and safely reduce inflammation throughout the body.
+      </p>
+    </div>
+
+    <div class="evidence-grid">
+      <div class="evidence-card">
+        <div class="evidence-num">225</div>
+        <div class="evidence-label">Patients enrolled in Phase 2 placebo-controlled clinical trial</div>
+      </div>
+      <div class="evidence-card">
+        <div class="evidence-num" style="color: var(--orange);">✓</div>
+        <div class="evidence-label">Statistically significant & lasting reductions in disease severity</div>
+      </div>
+      <div class="evidence-card">
+        <div class="evidence-num">≈</div>
+        <div class="evidence-label">Safety profile indistinguishable from placebo</div>
+      </div>
+    </div>
+
+    <div class="conditions-list">
+      <h4>Inflammatory conditions studied with <em>Prevotella histicola</em></h4>
+      <div class="condition-tags">
+        <span class="condition-tag highlight">Psoriasis</span>
+        <span class="condition-tag">Multiple Sclerosis</span>
+        <span class="condition-tag">Rheumatoid Arthritis</span>
+        <span class="condition-tag">Asthma</span>
+        <span class="condition-tag">COPD</span>
+        <span class="condition-tag">Celiac Disease</span>
+        <span class="condition-tag">Atopic Dermatitis</span>
+        <span class="condition-tag">Food Allergy</span>
+        <span class="condition-tag">Type I Diabetes</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── OCTAVE ───────────────────────────────────────────────────── -->
+  <section class="octave-section" id="octave">
+    <div class="octave-header">
+      <div>
+        <p class="section-tag">Octave Platform</p>
+        <h2 class="section-title">Immune science in daily practice.</h2>
+        <p class="section-body">
+          Sustainable immune health requires systemic change — not quick fixes.
+          PREVAIL addresses the immune system at its source. Octave, Songbird's
+          integrative platform, addresses the broader habits, behaviors, and environmental
+          factors that shape immune balance across a lifetime.
+        </p>
+      </div>
+      <div style="padding-top: 1rem;">
+        <p class="section-body">
+          Through Octave, we provide simple, evidence-based guidelines to help support
+          healthy immune system function across eight key pillars. Rather than just telling
+          you about what works, we help you integrate these actions into daily life.
+        </p>
+        <p class="section-body" style="margin-top: 1rem;">
+          Octave exists to be a clear, honest, science-based voice in the noise of the
+          modern wellness market — debunking what does not work and amplifying what does.
+        </p>
+      </div>
+    </div>
+
+    <div class="pillars-grid">
+      <div class="pillar-card">
+        <div class="pillar-icon">
+          <svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z"/><path d="M12 6v6l4 2"/></svg>
+        </div>
+        <h5>Nutrition</h5>
+      </div>
+      <div class="pillar-card">
+        <div class="pillar-icon">
+          <svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+        </div>
+        <h5>Exercise</h5>
+      </div>
+      <div class="pillar-card">
+        <div class="pillar-icon">
+          <svg viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        </div>
+        <h5>Sleep</h5>
+      </div>
+      <div class="pillar-card">
+        <div class="pillar-icon">
+          <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        </div>
+        <h5>Stress</h5>
+      </div>
+      <div class="pillar-card">
+        <div class="pillar-icon">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+        </div>
+        <h5>Environment</h5>
+      </div>
+      <div class="pillar-card">
+        <div class="pillar-icon">
+          <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        </div>
+        <h5>Community</h5>
+      </div>
+      <div class="pillar-card">
+        <div class="pillar-icon">
+          <svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+        </div>
+        <h5>Supplements</h5>
+      </div>
+      <div class="pillar-card active">
+        <div class="pillar-icon">
+          <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        </div>
+        <h5>Immunobiotics</h5>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── CREDIBILITY ───────────────────────────────────────────────── -->
+  <section class="credibility-section" id="about">
+    <div class="credibility-inner">
+      <div>
+        <p class="section-tag">Built on Science</p>
+        <h2 class="section-title">Decades of foundational research. Over $350 million invested.</h2>
+        <p class="section-body">
+          The scientific foundations of Songbird and PREVAIL were set decades ago at The Mayo
+          Clinic in Rochester, Minnesota — one of the world's pre-eminent medical research
+          institutions — where researchers first identified <em>Prevotella histicola</em>'s unique
+          inflammation-reducing properties in the early 2000s.
+        </p>
+
+        <div class="trust-items">
+          <div class="trust-item">
+            <div class="trust-badge">
+              <div class="badge-val">$350M</div>
+              <div class="badge-sub">invested</div>
+            </div>
+            <div class="trust-content">
+              <h5>Biotech-Grade Investment</h5>
+              <p>Over $350 million invested in the scientific, clinical, intellectual property, and manufacturing infrastructure — a level of rigor virtually unheard of outside pharmaceuticals.</p>
+            </div>
+          </div>
+          <div class="trust-item">
+            <div class="trust-badge">
+              <div class="badge-val" style="font-size: 0.9rem;">Mayo</div>
+              <div class="badge-sub">Clinic</div>
+            </div>
+            <div class="trust-content">
+              <h5>Foundational Mayo Clinic Research</h5>
+              <p>The discovery of <em>Prevotella histicola</em>'s immune-modulating properties originated at The Mayo Clinic, one of the world's leading medical research institutions.</p>
+            </div>
+          </div>
+          <div class="trust-item">
+            <div class="trust-badge">
+              <div class="badge-val">4</div>
+              <div class="badge-sub">continents</div>
+            </div>
+            <div class="trust-content">
+              <h5>A Unique Global Team</h5>
+              <p>Our team spans four continents, multiple disciplines, and decades of collective experience in immunology, biotechnology, and drug development.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="credibility-right">
+        <blockquote class="big-quote">
+          "Immune health does not have to begin at crisis. The science to address chronic inflammation
+          exists — and it should be accessible to every body, everywhere."
+        </blockquote>
+        <p class="quote-source">— Songbird Health Sciences Mission</p>
+
+        <div class="mayo-badge">
+          <div class="mayo-icon">🔬</div>
+          <div class="mayo-text">
+            <strong>Mayo Clinic Origins</strong>
+            Rochester, Minnesota · Research begun early 2000s
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── MISSION ───────────────────────────────────────────────────── -->
+  <section class="mission-section">
+    <p class="section-tag">Our Mission</p>
+    <h2 class="section-title">A humanistic revolution in healthcare.</h2>
+    <p class="section-body">
+      Songbird is committed to being a revolutionary business that helps as many people as
+      possible around the world by expanding who gets access to cutting-edge immunology
+      and science-based immune health products and tools.
+    </p>
+
+    <div class="revolution-pillars">
+      <div class="rev-pillar">
+        <div class="rev-num">01</div>
+        <h5>Accessible to Every Body</h5>
+        <p>We are committed to making evidence-based immune health accessible to every body, everywhere — not just those who can afford pharmaceutical interventions.</p>
+      </div>
+      <div class="rev-pillar">
+        <div class="rev-num">02</div>
+        <h5>Science Over Marketing</h5>
+        <p>We are leading a new frontier focused on science and evidence-based, non-pharmaceutical approaches — grounded in clinical data, not wellness trends.</p>
+      </div>
+      <div class="rev-pillar">
+        <div class="rev-num">03</div>
+        <h5>Health, Not Just Disease</h5>
+        <p>We are leading a movement to focus on health in addition to disease — starting long before crisis, and building immune resilience across a lifetime.</p>
+      </div>
+      <div class="rev-pillar">
+        <div class="rev-num">04</div>
+        <h5>Human Connection First</h5>
+        <p>We put human connection and kindness at the center of everything we do. Science as a means to improve people's lives together — with empathy, community, and love.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── CTA ──────────────────────────────────────────────────────── -->
+  <section class="cta-section" id="shop">
+    <p class="section-tag" style="color: var(--orange-light); display: block;">Get Started</p>
+    <h2 class="section-title">Find your harmony.<br>Start today.</h2>
+    <p class="section-body">
+      PREVAIL is a once-daily capsule that helps the immune system balance inflammation —
+      built on nearly a decade of research and backed by clinical evidence. Welcome to
+      the chorus.
+    </p>
+    <div class="cta-actions">
+      <a href="#" class="btn-white">Shop PREVAIL</a>
+      <a href="#science" class="btn-outline-white">Learn the Science</a>
+    </div>
+  </section>
+
+  <!-- ── FOOTER ────────────────────────────────────────────────────── -->
+  <footer>
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <img src="assets/songbird-logo.png" alt="Songbird" class="footer-logo-img">
+        <p>
+          Songbird Health Sciences is a different kind of immune health company — supported
+          by over $350M in biotech investment, clinical data, and foundational research at
+          The Mayo Clinic. Immune health belongs to every body, everywhere.
+        </p>
+      </div>
+      <div class="footer-col">
+        <h6>Product</h6>
+        <ul>
+          <li><a href="#">PREVAIL</a></li>
+          <li><a href="#">How It Works</a></li>
+          <li><a href="#">Octave Platform</a></li>
+          <li><a href="#">Subscribe & Save</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h6>Science</h6>
+        <ul>
+          <li><a href="#">Clinical Research</a></li>
+          <li><a href="#">Prevotella Histicola</a></li>
+          <li><a href="#">The SINTAX</a></li>
+          <li><a href="#">Mayo Clinic</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h6>Company</h6>
+        <ul>
+          <li><a href="#">About Songbird</a></li>
+          <li><a href="#">Our Team</a></li>
+          <li><a href="#">Press</a></li>
+          <li><a href="#">Contact</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>© 2026 Songbird Health Sciences. All rights reserved.</p>
+      <p class="footer-disclaimer">
+        * These statements have not been evaluated by the Food and Drug Administration.
+        PREVAIL is not intended to diagnose, treat, cure, or prevent any disease.
+      </p>
+    </div>
+  </footer>
+
+</body>
+</html>
