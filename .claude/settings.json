@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"C:/Users/mhossam/OneDrive - Journal Technologies/Documents/Desktop/ClaudeCode-Cursor\" && python3 -c \"import sys,json; d=json.load(sys.stdin); f=d.get('tool_input',{}).get('file_path') or d.get('tool_response',{}).get('filePath',''); print(f)\" | { read -r f; [ -n \"$f\" ] && git add \"$f\" && git commit -m \"Auto-save: update $(basename $f)\" && git push origin HEAD; } 2>/dev/null || true",
+            "timeout": 30,
+            "statusMessage": "Committing and pushing changes..."
+          }
+        ]
+      }
+    ]
+  }
+}
