@@ -133,3 +133,124 @@ def extract_table_map(doc: Document) -> list:
             "headers": headers,
         })
     return result
+
+
+# ---------------------------------------------------------------------------
+# Keyword signatures for company-agnostic table detection
+# ---------------------------------------------------------------------------
+_TABLE_SIGNATURES = {
+    "balance_sheet": {
+        "keywords": ["total assets", "total liabilities", "stockholders' equity"],
+        "min_matches": 3,
+    },
+    "income_statement": {
+        "keywords": ["revenues", "net income", "earnings per share"],
+        "min_matches": 2,
+    },
+    "cash_flow": {
+        "keywords": ["operating activities", "investing activities", "financing activities"],
+        "min_matches": 3,
+    },
+    "stockholders_equity": {
+        "keywords": ["common stock", "retained earnings", "paid-in capital"],
+        "min_matches": 3,
+    },
+    "eps": {
+        "keywords": ["earnings per share", "weighted average"],
+        "min_matches": 2,
+    },
+}
+
+
+def _collect_scan_texts(table) -> list:
+    """
+    Collect lowercased text from:
+      - All cells in the first 5 rows
+      - The first cell of every row (label column)
+    Returns a flat list of strings.
+    """
+    texts = []
+    num_rows = len(table.rows)
+    num_cols = len(table.columns)
+
+    # All cells in the first 5 rows
+    for r_idx in range(min(5, num_rows)):
+        for c_idx in range(num_cols):
+            try:
+                texts.append(table.cell(r_idx, c_idx).text.strip().lower())
+            except Exception:
+                pass
+
+    # First column of every row beyond row 5
+    for r_idx in range(5, num_rows):
+        try:
+            texts.append(table.cell(r_idx, 0).text.strip().lower())
+        except Exception:
+            pass
+
+    return texts
+
+
+def detect_financial_tables(doc: Document) -> dict:
+    """
+    Scan all tables in *doc* for keyword signatures and return a dict mapping
+    table type names to their 0-based table indices.
+
+    Return structure
+    ----------------
+    {
+        "balance_sheet":       <int>,   # present only if detected
+        "income_statement":    <int>,
+        "cash_flow":           <int>,
+        "stockholders_equity": <int>,
+        "eps":                 <int>,
+        "detected_at": {
+            <table_type>: [<matched_keyword>, ...],
+            ...
+        },
+    }
+
+    Detection strategy
+    ------------------
+    For each table, scan all cells in the first 5 rows plus the entire first
+    column.  Check how many of the type's keywords appear in that text corpus.
+    If the count meets the minimum threshold the table is matched to that type.
+    The first matching table wins for each type.
+
+    Special rule for "eps": a table that already matched "income_statement"
+    cannot also match "eps" — the EPS note table is a secondary table.
+    """
+    result = {}
+    detected_at = {}
+
+    for tbl_idx, table in enumerate(doc.tables):
+        scan_texts = _collect_scan_texts(table)
+        combined = " ".join(scan_texts)
+
+        for table_type, sig in _TABLE_SIGNATURES.items():
+            # Skip if this type is already matched
+            if table_type in result:
+                continue
+
+            # "eps" must not be the same table already claimed as income_statement
+            if table_type == "eps" and result.get("income_statement") == tbl_idx:
+                continue
+
+            matched = [kw for kw in sig["keywords"] if kw in combined]
+            if len(matched) >= sig["min_matches"]:
+                result[table_type] = tbl_idx
+                detected_at[table_type] = matched
+                logger.debug(
+                    "detect_financial_tables: table %d → %s (matched: %s)",
+                    tbl_idx, table_type, matched,
+                )
+
+    # Warn for any type that was not found
+    for table_type in _TABLE_SIGNATURES:
+        if table_type not in result:
+            logger.warning(
+                "detect_financial_tables: could not detect '%s' table by keywords", table_type
+            )
+
+    result["detected_at"] = detected_at
+    return result

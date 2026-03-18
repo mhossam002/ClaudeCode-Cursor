@@ -184,6 +184,60 @@ def process_income_statement(table, col_map: list, edgar_lookup: dict,
     return stats
 
 
+def process_annual_income_statement(table, col_map: list, edgar_lookup: dict,
+                                     concept_row_map: dict, comparable_period_end: str) -> dict:
+    """
+    Annual income statement: 2 columns (current year vs. prior year).
+    - Blank current-period column
+    - Populate prior-year (comparable) column from EDGAR using 12-month facts
+
+    EDGAR facts stored with months=12 (360–370 day range) are used for the
+    comparable column.  If a concept is not found at 12 months the miss is
+    recorded in stats["edgar_missing"] but the current-period cell is still
+    blanked so the document is not left with stale figures.
+
+    Returns stats dict.
+    """
+    stats = {"blanked": 0, "edgar_inserted": 0, "edgar_missing": []}
+
+    current_cols   = [c["col_index"] for c in col_map if c["role"] == "CURRENT_PERIOD"]
+    comparable_cols = [c["col_index"] for c in col_map if c["role"] == "COMPARABLE"]
+
+    for r_idx, row in enumerate(table.rows):
+        cells = get_unique_cells_in_row(row)
+        label_text = cells[0].text.strip().lower() if cells else ""
+
+        # Blank current-period cells
+        for col_idx in current_cols:
+            if col_idx < len(cells):
+                if blank_cell(cells[col_idx]):
+                    stats["blanked"] += 1
+
+        # Populate comparable (prior-year) cells from EDGAR using 12-month facts
+        for col_idx in comparable_cols:
+            if col_idx < len(cells):
+                for (concept, m), label_sub in concept_row_map.items():
+                    # Only use entries keyed for 12-month (annual) lookups.
+                    # concept_row_map keys may use any month value; we try 12
+                    # regardless of what month value the map entry carries,
+                    # because for an annual filing all income-statement lines
+                    # represent full-year (12-month) figures.
+                    if label_sub.lower() in label_text:
+                        val = edgar_lookup.get((concept, comparable_period_end, 12))
+                        hint = get_format_hint(concept)
+                        if insert_edgar_value(cells[col_idx], val, hint):
+                            stats["edgar_inserted"] += 1
+                        else:
+                            stats["edgar_missing"].append(
+                                f"{concept}@{comparable_period_end}/12mo"
+                            )
+                        break
+
+    logger.info("Annual income statement: blanked=%d inserted=%d missing=%d",
+                stats["blanked"], stats["edgar_inserted"], len(stats["edgar_missing"]))
+    return stats
+
+
 # ---------------------------------------------------------------------------
 # Cash Flow
 # ---------------------------------------------------------------------------
@@ -366,21 +420,6 @@ def add_ytd_columns(table, edgar_lookup: dict, target_config: dict,
     logger.info("add_ytd_columns: cols_added=%d edgar_inserted=%d missing=%d",
                 stats["cols_added"], stats["edgar_inserted"], len(stats["edgar_missing"]))
     return stats
-
-
-def _format_value(value, format_hint: str) -> str:
-    """Format a numeric value for insertion (same as in cell helpers)."""
-    if value is None:
-        return ""
-    try:
-        if format_hint == "per_share":
-            return f"{float(value):.2f}"
-        elif format_hint == "shares":
-            return f"{int(round(float(value))):,}"
-        else:
-            return f"{int(round(float(value))):,}"
-    except (ValueError, TypeError):
-        return str(value)
 
 
 def _set_tc_text(tc_elem, text: str):

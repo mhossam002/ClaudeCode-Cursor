@@ -2,3 +2,9 @@ flask
 python-docx
 requests
 lxml
+anthropic
+chromadb
+pymupdf
+beautifulsoup4
+mammoth
+weasyprint

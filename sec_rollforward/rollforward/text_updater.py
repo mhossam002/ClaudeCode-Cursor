@@ -20,6 +20,7 @@ def build_rules(source_config: dict, target_config: dict) -> list:
 
     Handles:
     - "N Months Ended <date>" headers in three case variants
+    - "Year Ended" / "Fiscal Year Ended" language when ytd_months == 12
     - Plain date labels in normal and ALL-CAPS variants
     - Quarter ordinal references (first/second/…) with several case forms
     - Filing date → placeholder
@@ -40,6 +41,12 @@ def build_rules(source_config: dict, target_config: dict) -> list:
     tgt_mo_word = _MONTHS_WORD.get(tgt_mo, f"{tgt_mo}")
 
     rules = []
+
+    # ── Annual (12-month) "Year Ended" language ──────────────────────────────
+    # Inject these before "N Months Ended" so the more specific phrases match
+    # first.  Active whenever source ytd_months == 12.
+    if src_mo == 12:
+        rules += _build_year_ended_rules(src_p, tgt_p, src_c, tgt_c)
 
     # ── "N Months Ended <date>" — 3 case variants × 2 periods × 2 months words ──
     # We cover both the single-quarter header ("Three Months Ended") and any
@@ -86,6 +93,75 @@ def build_rules(source_config: dict, target_config: dict) -> list:
         rules.append((src_fd, tgt_fd))
 
     # Final dedup
+    return list(dict.fromkeys(rules))
+
+
+def _build_year_ended_rules(src_p: str, tgt_p: str, src_c: str, tgt_c: str) -> list:
+    """
+    Return replacement rules for "Year Ended" and "Fiscal Year Ended" language.
+    Covers common capitalisation variants and "For the year ended" constructions.
+    Called automatically by build_rules() when ytd_months == 12, and also
+    used directly by build_annual_rules().
+    """
+    rules = []
+    for src_date, tgt_date in [(src_p, tgt_p), (src_c, tgt_c)]:
+        src_upper = src_date.upper()
+        tgt_upper = tgt_date.upper()
+        rules += [
+            # "Fiscal Year Ended" variants — check before plain "Year Ended"
+            (f"Fiscal Year Ended {src_date}",         f"Fiscal Year Ended {tgt_date}"),
+            (f"fiscal year ended {src_date}",         f"fiscal year ended {tgt_date}"),
+            (f"FISCAL YEAR ENDED {src_upper}",        f"FISCAL YEAR ENDED {tgt_upper}"),
+            # "For the year ended" variants
+            (f"For the year ended {src_date}",        f"For the year ended {tgt_date}"),
+            (f"for the year ended {src_date}",        f"for the year ended {tgt_date}"),
+            (f"FOR THE YEAR ENDED {src_upper}",       f"FOR THE YEAR ENDED {tgt_upper}"),
+            # Plain "Year Ended" variants
+            (f"Year Ended {src_date}",                f"Year Ended {tgt_date}"),
+            (f"year ended {src_date}",                f"year ended {tgt_date}"),
+            (f"YEAR ENDED {src_upper}",               f"YEAR ENDED {tgt_upper}"),
+        ]
+    return rules
+
+
+def build_annual_rules(source_config: dict, target_config: dict) -> list:
+    """
+    Build replacement rules for a 10-K annual roll-forward.
+
+    Handles "Year Ended" and "Fiscal Year Ended" language in addition to all
+    the standard date-label replacements produced by build_rules().  The
+    "N Months Ended" patterns are omitted because they do not appear in 10-K
+    income-statement headers.
+
+    Returns the same format as build_rules(): a list of (old, new) tuples.
+    """
+    src_p  = source_config["period_label"]
+    src_c  = source_config["comparable_label"]
+    src_fd = source_config.get("filing_date", "")
+
+    tgt_p  = target_config["period_label"]
+    tgt_c  = target_config["comparable_label"]
+    tgt_fd = target_config.get("filing_date", "[FILING DATE]")
+
+    rules = []
+
+    # ── "Year Ended" / "Fiscal Year Ended" / "For the year ended" ────────────
+    rules += _build_year_ended_rules(src_p, tgt_p, src_c, tgt_c)
+
+    # Deduplicate (preserves order)
+    rules = list(dict.fromkeys(rules))
+
+    # ── Plain date labels ──
+    for src_date, tgt_date in [(src_p, tgt_p), (src_c, tgt_c)]:
+        rules += [
+            (src_date,         tgt_date),
+            (src_date.upper(), tgt_date.upper()),
+        ]
+
+    # ── Filing date ──
+    if src_fd and src_fd != tgt_fd:
+        rules.append((src_fd, tgt_fd))
+
     return list(dict.fromkeys(rules))
 
 
@@ -166,6 +242,57 @@ def update_paragraph_text(paragraph, rules: list) -> int:
     return count
 
 
+class _XmlRunAdapter:
+    """Duck-type adapter giving update_paragraph_text a run-like object from a w:r XML element."""
+    def __init__(self, r_elem):
+        from docx.oxml.ns import qn
+        self._r   = r_elem
+        self._qn  = qn
+        self._XML_SPACE = '{http://www.w3.org/XML/1998/namespace}space'
+
+    @property
+    def text(self) -> str:
+        return "".join(t.text or "" for t in self._r.iter(self._qn('w:t')))
+
+    @text.setter
+    def text(self, value: str):
+        t_elems = list(self._r.iter(self._qn('w:t')))
+        if not t_elems:
+            return
+        t_elems[0].text = value
+        for t in t_elems[1:]:
+            t.text = ""
+        # Preserve whitespace at string boundaries
+        if value and (value[0] == ' ' or value[-1] == ' '):
+            t_elems[0].set(self._XML_SPACE, 'preserve')
+
+
+class _XmlParagraphAdapter:
+    """Duck-type adapter giving update_paragraph_text a paragraph-like object from a w:p element."""
+    def __init__(self, p_elem):
+        from docx.oxml.ns import qn
+        self.runs = [_XmlRunAdapter(r) for r in p_elem.iter(qn('w:r'))]
+
+
+def _get_notes_paragraphs(doc) -> list:
+    """
+    Return _XmlParagraphAdapter objects for every w:p in footnotes.xml
+    and endnotes.xml (both parts are optional; silently skipped if absent).
+    """
+    from docx.oxml.ns import qn
+    _FOOTNOTES = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/footnotes'
+    _ENDNOTES  = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/endnotes'
+    paras = []
+    try:
+        for rel in doc.part.rels.values():
+            if rel.reltype in (_FOOTNOTES, _ENDNOTES):
+                for p_elem in rel.target_part._element.iter(qn('w:p')):
+                    paras.append(_XmlParagraphAdapter(p_elem))
+    except Exception as exc:
+        logger.warning("Could not access footnotes/endnotes: %s", exc)
+    return paras
+
+
 def update_all_paragraphs(doc, rules: list = None) -> int:
     """
     Apply text replacement to all paragraphs in the document,
@@ -189,6 +316,14 @@ def update_all_paragraphs(doc, rules: list = None) -> int:
                     total += update_paragraph_text(para, rules)
 
     logger.info("Text replacement pass: %d substitutions made", total)
+
+    # Footnote / endnote paragraphs (word/footnotes.xml, word/endnotes.xml)
+    note_paras = _get_notes_paragraphs(doc)
+    for para in note_paras:
+        total += update_paragraph_text(para, rules)
+    if note_paras:
+        logger.info("Text replacement pass (footnotes/endnotes): %d paragraphs", len(note_paras))
+
     return total
 
 

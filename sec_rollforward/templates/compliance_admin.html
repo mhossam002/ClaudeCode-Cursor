@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SEC Compliance Knowledge Base — Admin</title>
+  <style>
+    /* ── Reset & base ─────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:           #0d1117;
+      --surface:      #161b22;
+      --surface2:     #21262d;
+      --border:       #30363d;
+      --accent:       #238636;
+      --accent-hover: #2ea043;
+      --accent-blue:  #1f6feb;
+      --accent-blue-h:#388bfd;
+      --text:         #e6edf3;
+      --text-muted:   #8b949e;
+      --warning:      #d29922;
+      --danger:       #f85149;
+      --success:      #3fb950;
+      --radius:       8px;
+      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace;
+    }
+    html { font-size: 15px; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      min-height: 100vh;
+      padding: 2rem 1rem;
+    }
+
+    /* ── Layout ───────────────────────────────────────────────────────── */
+    .container { max-width: 1020px; margin: 0 auto; }
+
+    header {
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 1.25rem;
+      margin-bottom: 2rem;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+    header h1 { font-size: 1.4rem; font-weight: 600; }
+    header p  { color: var(--text-muted); margin-top: 0.3rem; font-size: 0.9rem; }
+    .back-link {
+      font-size: 0.85rem;
+      color: var(--accent-blue-h);
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      margin-bottom: 0.5rem;
+    }
+    .back-link:hover { text-decoration: underline; color: var(--accent-blue-h); }
+
+    /* ── Cards ────────────────────────────────────────────────────────── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+      margin-bottom: 1.25rem;
+    }
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+    .card-header h2 { font-size: 1rem; font-weight: 600; margin: 0; }
+
+    /* ── Buttons ──────────────────────────────────────────────────────── */
+    .btn {
+      display: inline-flex; align-items: center; gap: 0.4rem;
+      padding: 0.5rem 1.1rem;
+      border: none; border-radius: 6px;
+      font-size: 0.88rem; font-weight: 500; font-family: var(--font);
+      cursor: pointer; transition: background 0.15s, opacity 0.15s;
+    }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-blue { background: var(--accent-blue); color: #fff; }
+    .btn-blue:hover { background: var(--accent-blue-h); }
+    .btn-outline {
+      background: transparent; color: var(--text-muted);
+      border: 1px solid var(--border);
+    }
+    .btn-outline:hover { border-color: var(--text-muted); color: var(--text); }
+    .btn-sm {
+      padding: 0.3rem 0.7rem;
+      font-size: 0.78rem;
+    }
+    .btn-danger-outline {
+      background: transparent; color: var(--danger);
+      border: 1px solid var(--danger);
+    }
+    .btn-danger-outline:hover { background: rgba(248,81,73,0.1); }
+    .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+    .btn-row { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+
+    /* ── Badges ───────────────────────────────────────────────────────── */
+    .badge {
+      display: inline-block;
+      padding: 0.15rem 0.55rem;
+      border-radius: 4px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+    }
+    .badge-pdf  { background: #2d1f03; color: var(--warning);  border: 1px solid var(--warning); }
+    .badge-docx { background: #1c2d3e; color: #58a6ff;         border: 1px solid var(--accent-blue); }
+    .badge-html { background: #0d2b1b; color: var(--success);  border: 1px solid var(--success); }
+
+    .status-badge {
+      display: inline-flex; align-items: center; gap: 0.3rem;
+      padding: 0.2rem 0.6rem;
+      border-radius: 12px;
+      font-size: 0.78rem; font-weight: 500;
+    }
+    .status-badge .dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      display: inline-block;
+      flex-shrink: 0;
+    }
+    .status-indexed  { background: #0d2b1b; color: var(--success);  border: 1px solid var(--success); }
+    .status-indexed .dot  { background: var(--success); }
+    .status-pending  { background: #2d1f03; color: var(--warning);  border: 1px solid var(--warning); }
+    .status-pending .dot  { background: var(--warning); }
+    .status-error    { background: #2d0d0d; color: var(--danger);   border: 1px solid var(--danger); }
+    .status-error .dot    { background: var(--danger); }
+
+    /* ── Table ────────────────────────────────────────────────────────── */
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+    thead th {
+      background: var(--surface2);
+      color: var(--text-muted);
+      font-weight: 600;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      padding: 0.6rem 0.9rem;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+      white-space: nowrap;
+    }
+    tbody td {
+      padding: 0.7rem 0.9rem;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:hover { background: rgba(255,255,255,0.02); }
+    .col-name   { min-width: 180px; font-weight: 500; }
+    .col-type   { width: 80px; }
+    .col-status { width: 120px; }
+    .col-chunks { width: 80px; font-family: monospace; text-align: right; color: var(--text-muted); }
+    .col-date   { width: 140px; font-size: 0.78rem; color: var(--text-muted); white-space: nowrap; }
+    .col-action { width: 100px; }
+
+    /* ── Stats grid ───────────────────────────────────────────────────── */
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.75rem;
+    }
+    @media (min-width: 540px) {
+      .stat-grid { grid-template-columns: repeat(4, 1fr); }
+    }
+    .stat-box {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.85rem 1rem;
+      text-align: center;
+    }
+    .stat-num { font-size: 1.5rem; font-weight: 700; line-height: 1; }
+    .stat-lbl { font-size: 0.72rem; color: var(--text-muted); margin-top: 0.3rem; }
+    .stat-num.mono { font-family: monospace; font-size: 0.9rem; margin-top: 0.15rem; }
+
+    /* ── Progress log ─────────────────────────────────────────────────── */
+    .log-panel {
+      background: #0a0e14;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.75rem 1rem;
+      font-family: monospace;
+      font-size: 0.8rem;
+      max-height: 320px;
+      overflow-y: auto;
+      line-height: 1.6;
+    }
+    .log-panel:empty::before {
+      content: "No ingestion running. Click \"Ingest All Sources\" to start.";
+      color: var(--text-muted);
+    }
+    .log-line { display: flex; align-items: flex-start; gap: 0.6rem; padding: 0.1rem 0; }
+    .log-line .ts { color: var(--text-muted); flex-shrink: 0; }
+    .log-line .msg { color: var(--text); }
+    .log-line.done  .icon { color: var(--success); }
+    .log-line.error .icon { color: var(--danger); }
+    .log-line.warn  .icon { color: var(--warning); }
+    .log-line.info  .icon { color: var(--accent-blue-h); }
+    .log-line .icon { flex-shrink: 0; }
+
+    /* Spinner for in-progress log lines */
+    .log-spinner {
+      display: inline-block; width: 12px; height: 12px;
+      border: 2px solid rgba(255,255,255,0.2);
+      border-top-color: var(--accent-blue-h);
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      vertical-align: middle;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Health icon ──────────────────────────────────────────────────── */
+    .health-icon { font-size: 1rem; }
+    .health-ok   { color: var(--success); }
+    .health-warn { color: var(--warning); }
+    .health-err  { color: var(--danger); }
+
+    /* ── Alerts ───────────────────────────────────────────────────────── */
+    .alert {
+      padding: 0.7rem 1rem;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      margin-top: 0.75rem;
+      display: none;
+    }
+    .alert.show { display: block; }
+    .alert-info    { background: #1c2d3e; border: 1px solid var(--accent-blue); color: #58a6ff; }
+    .alert-success { background: #0d2b1b; border: 1px solid var(--success);     color: var(--success); }
+    .alert-warning { background: #2d1f03; border: 1px solid var(--warning);     color: var(--warning); }
+    .alert-danger  { background: #2d0d0d; border: 1px solid var(--danger);      color: var(--danger); }
+
+    /* ── Spinner ──────────────────────────────────────────────────────── */
+    .btn-spinner {
+      display: inline-block; width: 14px; height: 14px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+    }
+
+    /* ── Empty state ──────────────────────────────────────────────────── */
+    .empty-state {
+      text-align: center;
+      padding: 2.5rem 1rem;
+      color: var(--text-muted);
+      font-size: 0.88rem;
+    }
+
+    /* ── Section label ────────────────────────────────────────────────── */
+    .section-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      margin-bottom: 0.75rem;
+    }
+
+    /* ── Last updated chip ────────────────────────────────────────────── */
+    .chip {
+      display: inline-block;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 0.15rem 0.5rem;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      font-family: monospace;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <!-- ════════════════════════════════════════════════════════════════
+       HEADER
+  ═════════════════════════════════════════════════════════════════ -->
+  <header>
+    <div>
+      <a class="back-link" href="/">&larr; Roll-Forward Tool</a>
+      <h1>SEC Compliance Knowledge Base &mdash; Admin</h1>
+      <p>Manage indexed sources, trigger ingestion, and monitor the vector store.</p>
+    </div>
+    <div class="btn-row" style="align-items:flex-start;padding-top:1.6rem">
+      <button class="btn btn-blue" id="btn-ingest-all">
+        <span class="btn-spinner" id="ingest-spinner" style="display:none"></span>
+        Ingest All Sources
+      </button>
+      <button class="btn btn-outline" id="btn-refresh">
+        Refresh Status
+      </button>
+    </div>
+  </header>
+
+  <div id="global-alert" class="alert"></div>
+
+  <!-- ════════════════════════════════════════════════════════════════
+       SOURCE LIBRARY TABLE
+  ═════════════════════════════════════════════════════════════════ -->
+  <div class="card">
+    <div class="card-header">
+      <h2>Source Library</h2>
+      <span id="source-count" class="chip">— sources</span>
+    </div>
+    <div class="table-wrap">
+      <table id="sources-table">
+        <thead>
+          <tr>
+            <th class="col-name">Name</th>
+            <th class="col-type">Type</th>
+            <th class="col-status">Status</th>
+            <th class="col-chunks">Chunks</th>
+            <th class="col-date">Last Ingested</th>
+            <th class="col-action">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="sources-tbody">
+          <tr>
+            <td colspan="6">
+              <div class="empty-state">Loading sources&hellip;</div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════════
+       VECTOR STORE STATS
+  ═════════════════════════════════════════════════════════════════ -->
+  <div class="card">
+    <div class="card-header">
+      <h2>Vector Store</h2>
+      <span id="store-updated" class="chip">—</span>
+    </div>
+    <div class="stat-grid" id="stats-grid">
+      <div class="stat-box">
+        <div class="stat-num" id="stat-total-chunks">—</div>
+        <div class="stat-lbl">Total Chunks</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-num mono" id="stat-embed-model">—</div>
+        <div class="stat-lbl">Embedding Model</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-num" id="stat-db-size">—</div>
+        <div class="stat-lbl">DB Size on Disk</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-num" id="stat-collections">—</div>
+        <div class="stat-lbl">Collections</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════════
+       PROGRESS LOG
+  ═════════════════════════════════════════════════════════════════ -->
+  <div class="card">
+    <div class="card-header">
+      <h2>Ingestion Log</h2>
+      <button class="btn btn-outline btn-sm" id="btn-clear-log">Clear</button>
+    </div>
+    <div class="log-panel" id="log-panel"></div>
+  </div>
+
+</div><!-- /.container -->
+
+<script>
+// ─────────────────────────────────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────────────────────────────────
+function escHtml(s) {
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+function showGlobalAlert(msg, type = "danger") {
+  const el = document.getElementById("global-alert");
+  el.className = `alert alert-${type} show`;
+  el.textContent = msg;
+}
+function hideGlobalAlert() {
+  const el = document.getElementById("global-alert");
+  el.className = "alert";
+  el.textContent = "";
+}
+
+function now() {
+  return new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Log panel
+// ─────────────────────────────────────────────────────────────────────────
+const logPanel = document.getElementById("log-panel");
+let activeLine = null; // tracks the current spinner line
+
+function appendLog(msg, lineType = "info") {
+  // lineType: "info" | "done" | "error" | "warn" | "progress"
+  const icons = {
+    done:     "✓",
+    error:    "✗",
+    warn:     "⚠",
+    info:     "›",
+    progress: '<span class="log-spinner"></span>',
+  };
+  const line = document.createElement("div");
+  line.className = `log-line ${lineType === "progress" ? "info" : lineType}`;
+  line.innerHTML =
+    `<span class="ts">${escHtml(now())}</span>` +
+    `<span class="icon">${icons[lineType] || "›"}</span>` +
+    `<span class="msg">${escHtml(msg)}</span>`;
+
+  if (lineType === "progress") {
+    if (activeLine) activeLine.remove();
+    // Replace inline spinner html (already set above) — override icon cell
+    line.querySelector(".icon").innerHTML = icons.progress;
+    activeLine = line;
+  } else {
+    activeLine = null;
+  }
+
+  logPanel.appendChild(line);
+  logPanel.scrollTop = logPanel.scrollHeight;
+  return line;
+}
+
+function completeActiveLine(msg, lineType = "done") {
+  if (!activeLine) return;
+  const icons = { done: "✓", error: "✗", warn: "⚠", info: "›" };
+  activeLine.className = `log-line ${lineType}`;
+  activeLine.querySelector(".icon").innerHTML = icons[lineType] || "›";
+  if (msg) activeLine.querySelector(".msg").textContent = msg;
+  activeLine = null;
+}
+
+document.getElementById("btn-clear-log").addEventListener("click", () => {
+  logPanel.innerHTML = "";
+  activeLine = null;
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// Render helpers
+// ─────────────────────────────────────────────────────────────────────────
+function typeBadge(type) {
+  const t = (type || "").toUpperCase();
+  const cls = { PDF: "badge-pdf", DOCX: "badge-docx", HTML: "badge-html" }[t] || "badge-html";
+  return `<span class="badge ${cls}">${escHtml(t || "—")}</span>`;
+}
+
+function statusBadge(status) {
+  const map = {
+    indexed: { cls: "status-indexed", label: "Indexed" },
+    pending: { cls: "status-pending", label: "Pending" },
+    error:   { cls: "status-error",   label: "Error"   },
+  };
+  const s = (status || "pending").toLowerCase();
+  const cfg = map[s] || map.pending;
+  return `<span class="status-badge ${cfg.cls}"><span class="dot"></span>${cfg.label}</span>`;
+}
+
+function healthIcon(status) {
+  const s = (status || "pending").toLowerCase();
+  if (s === "indexed") return `<span class="health-icon health-ok" title="Indexed">&#10003;</span>`;
+  if (s === "error")   return `<span class="health-icon health-err" title="Error">&#10007;</span>`;
+  return `<span class="health-icon health-warn" title="Pending">&#9888;</span>`;
+}
+
+function fmtDate(val) {
+  if (!val) return '<span style="color:var(--text-muted)">Never</span>';
+  try {
+    return new Date(val).toLocaleString([], {
+      year: "numeric", month: "short", day: "numeric",
+      hour: "2-digit", minute: "2-digit",
+    });
+  } catch { return escHtml(String(val)); }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Render sources table
+// ─────────────────────────────────────────────────────────────────────────
+function renderSources(sources) {
+  const tbody = document.getElementById("sources-tbody");
+  const countEl = document.getElementById("source-count");
+
+  if (!sources || sources.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state">No sources configured.</div></td></tr>`;
+    countEl.textContent = "0 sources";
+    return;
+  }
+
+  countEl.textContent = `${sources.length} source${sources.length !== 1 ? "s" : ""}`;
+  tbody.innerHTML = "";
+
+  sources.forEach(src => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td class="col-name">
+        ${healthIcon(src.status)}
+        <span style="margin-left:0.45rem">${escHtml(src.name || src.source_id)}</span>
+      </td>
+      <td class="col-type">${typeBadge(src.type)}</td>
+      <td class="col-status">${statusBadge(src.status)}</td>
+      <td class="col-chunks">${src.chunks != null ? src.chunks.toLocaleString() : "—"}</td>
+      <td class="col-date">${fmtDate(src.last_ingested)}</td>
+      <td class="col-action">
+        <button
+          class="btn btn-outline btn-sm"
+          data-source-id="${escHtml(src.source_id)}"
+          data-source-name="${escHtml(src.name || src.source_id)}"
+          onclick="reingestSource(this)"
+        >Re-ingest</button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Render stats
+// ─────────────────────────────────────────────────────────────────────────
+function renderStats(stats) {
+  if (!stats) return;
+  document.getElementById("stat-total-chunks").textContent =
+    stats.total_chunks != null ? stats.total_chunks.toLocaleString() : "—";
+  document.getElementById("stat-embed-model").textContent =
+    stats.embedding_model || "—";
+  document.getElementById("stat-db-size").textContent =
+    stats.db_size_mb != null ? `${stats.db_size_mb} MB` : "—";
+  document.getElementById("stat-collections").textContent =
+    stats.collections != null ? stats.collections : "—";
+  document.getElementById("store-updated").textContent =
+    stats.last_updated ? `Updated ${fmtDate(stats.last_updated)}` : "Never updated";
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Fetch status (page load + Refresh button)
+// ─────────────────────────────────────────────────────────────────────────
+async function fetchStatus() {
+  hideGlobalAlert();
+  try {
+    const resp = await fetch("/api/compliance/status");
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      throw new Error(err.error || `HTTP ${resp.status}`);
+    }
+    const data = await resp.json();
+    renderSources(data.sources || []);
+    renderStats(data.stats || null);
+  } catch (err) {
+    showGlobalAlert(`Failed to load compliance status: ${err.message}`, "danger");
+    // Show empty state in table
+    document.getElementById("sources-tbody").innerHTML =
+      `<tr><td colspan="6"><div class="empty-state">Could not load sources — is the server running?</div></td></tr>`;
+  }
+}
+
+document.getElementById("btn-refresh").addEventListener("click", () => {
+  appendLog("Refreshing status…", "progress");
+  fetchStatus().then(() => {
+    completeActiveLine("Status refreshed.", "done");
+  }).catch(() => {
+    completeActiveLine("Refresh failed.", "error");
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// SSE ingestion stream
+// ─────────────────────────────────────────────────────────────────────────
+function setIngestRunning(running) {
+  const btn = document.getElementById("btn-ingest-all");
+  const spinner = document.getElementById("ingest-spinner");
+  btn.disabled = running;
+  spinner.style.display = running ? "inline-block" : "none";
+  btn.childNodes[btn.childNodes.length - 1].textContent =
+    running ? " Ingesting…" : " Ingest All Sources";
+}
+
+function runIngestionStream(url, onDone) {
+  setIngestRunning(true);
+  appendLog("Starting ingestion pipeline…", "progress");
+
+  let es;
+  try {
+    es = new EventSource(url);
+  } catch (err) {
+    completeActiveLine("EventSource not supported.", "error");
+    setIngestRunning(false);
+    return;
+  }
+
+  es.addEventListener("message", e => {
+    let payload;
+    try { payload = JSON.parse(e.data); }
+    catch { payload = { message: e.data, type: "info" }; }
+
+    const { message, type, source, error } = payload;
+    const lineType = type === "done"    ? "done"
+                   : type === "error"   ? "error"
+                   : type === "warning" ? "warn"
+                   : type === "step"    ? "progress"
+                   : "info";
+
+    if (activeLine && (type === "done" || type === "error")) {
+      completeActiveLine(message, lineType);
+    } else {
+      appendLog(message || (error ? `Error: ${error}` : "…"), lineType);
+    }
+  });
+
+  es.addEventListener("done", e => {
+    completeActiveLine("Ingestion complete.", "done");
+    appendLog("All sources processed. Refreshing status…", "info");
+    es.close();
+    setIngestRunning(false);
+    fetchStatus().then(() => {
+      appendLog("Status refreshed.", "done");
+      if (onDone) onDone();
+    });
+  });
+
+  es.addEventListener("error", e => {
+    // EventSource fires "error" on connection close too — only treat as fatal if readyState is CLOSED
+    if (es.readyState === EventSource.CLOSED) {
+      completeActiveLine("Stream closed unexpectedly.", "error");
+      setIngestRunning(false);
+      fetchStatus();
+    }
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Ingest All Sources
+// ─────────────────────────────────────────────────────────────────────────
+document.getElementById("btn-ingest-all").addEventListener("click", () => {
+  hideGlobalAlert();
+  // POST to kick off ingestion, then open SSE stream
+  fetch("/api/compliance/ingest", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({}),
+  })
+    .then(async resp => {
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        throw new Error(err.error || `HTTP ${resp.status}`);
+      }
+      runIngestionStream("/api/compliance/ingest-stream", null);
+    })
+    .catch(err => {
+      showGlobalAlert(`Ingestion request failed: ${err.message}`, "danger");
+      appendLog(`Ingestion failed: ${err.message}`, "error");
+    });
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// Re-ingest single source
+// ─────────────────────────────────────────────────────────────────────────
+function reingestSource(btn) {
+  const sourceId   = btn.dataset.sourceId;
+  const sourceName = btn.dataset.sourceName;
+  hideGlobalAlert();
+  btn.disabled = true;
+  appendLog(`Re-ingesting source: ${sourceName}…`, "progress");
+
+  fetch("/api/compliance/ingest", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ source_id: sourceId }),
+  })
+    .then(async resp => {
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        throw new Error(err.error || `HTTP ${resp.status}`);
+      }
+      // Stream progress for this individual source
+      runIngestionStream(`/api/compliance/ingest-stream?source_id=${encodeURIComponent(sourceId)}`, () => {
+        btn.disabled = false;
+      });
+    })
+    .catch(err => {
+      completeActiveLine(`Failed to start re-ingest: ${err.message}`, "error");
+      showGlobalAlert(`Re-ingest failed for "${sourceName}": ${err.message}`, "danger");
+      btn.disabled = false;
+    });
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Init — load status on page load
+// ─────────────────────────────────────────────────────────────────────────
+fetchStatus();
+</script>
+</body>
+</html>

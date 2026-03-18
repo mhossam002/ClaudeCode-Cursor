@@ -3,579 +3,1326 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SEC 10-Q Roll-Forward Tool</title>
+  <title>SEC Filing Platform</title>
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/docx-preview@0.3.7/dist/docx-preview.js"></script>
   <style>
-    /* ── Reset & base ─────────────────────────────────────────────────── */
+    /* ── Reset & root ────────────────────────────────────────────────── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
-      --bg:          #0d1117;
-      --surface:     #161b22;
-      --surface2:    #21262d;
-      --border:      #30363d;
-      --accent:      #238636;
-      --accent-hover:#2ea043;
-      --accent-blue: #1f6feb;
-      --accent-blue-h:#388bfd;
-      --text:        #e6edf3;
-      --text-muted:  #8b949e;
-      --warning:     #d29922;
-      --danger:      #f85149;
-      --success:     #3fb950;
-      --yellow-hl:   #f0b429;
+      --bg-app:      #f0f2f5;
+      --bg-canvas:   #ffffff;
+      --bg-surface:  #ffffff;
+      --bg-surface2: #f7f8fa;
+      --border:      #d1d5db;
+      --accent:      #1a56db;
+      --accent-hover:#1e429f;
+      --text:        #111928;
+      --text-muted:  #6b7280;
+      --success:     #057a55;
+      --warning:     #b45309;
+      --danger:      #e02424;
       --radius:      8px;
-      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace;
+      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     }
-    html { font-size: 15px; }
-    body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: var(--font);
-      min-height: 100vh;
-      padding: 2rem 1rem;
-    }
+    html, body { height: 100%; font-size: 14px; font-family: var(--font); color: var(--text); }
+    body { display: flex; flex-direction: column; background: var(--bg-app); overflow: hidden; }
 
-    /* ── Layout ───────────────────────────────────────────────────────── */
-    .container { max-width: 860px; margin: 0 auto; }
-
-    header {
+    /* ── Topbar ──────────────────────────────────────────────────────── */
+    #topbar {
+      display: flex; align-items: center; gap: 0.75rem;
+      height: 52px; padding: 0 1rem;
+      background: var(--bg-surface);
       border-bottom: 1px solid var(--border);
-      padding-bottom: 1.25rem;
-      margin-bottom: 2rem;
+      flex-shrink: 0; z-index: 100;
     }
-    header h1 { font-size: 1.4rem; font-weight: 600; }
-    header p { color: var(--text-muted); margin-top: 0.3rem; font-size: 0.9rem; }
+    .app-brand {
+      font-size: 0.95rem; font-weight: 700; color: var(--accent);
+      white-space: nowrap; margin-right: 0.5rem;
+    }
+    .topbar-center {
+      display: flex; align-items: center; gap: 0.6rem; flex: 1;
+    }
+    .topbar-actions { display: flex; align-items: center; gap: 0.6rem; }
+    .hamburger {
+      background: none; border: none; cursor: pointer; padding: 0.3rem 0.5rem;
+      font-size: 1.1rem; color: var(--text-muted); border-radius: 4px;
+      transition: background 0.15s, color 0.15s;
+    }
+    .hamburger:hover { background: var(--bg-surface2); color: var(--text); }
 
-    /* ── Step progress bar ────────────────────────────────────────────── */
-    .steps {
-      display: flex;
-      gap: 0;
-      margin-bottom: 2rem;
+    /* Topbar form-type select */
+    #topbar-form-type {
+      background: var(--bg-surface2); border: 1px solid var(--border);
+      border-radius: 6px; color: var(--text);
+      padding: 0.3rem 0.6rem; font-size: 0.82rem;
+      font-family: var(--font); cursor: pointer; outline: none;
     }
-    .step-item {
-      flex: 1;
-      text-align: center;
-      padding: 0.6rem 0.5rem;
-      font-size: 0.82rem;
-      font-weight: 500;
-      border-bottom: 3px solid var(--border);
-      color: var(--text-muted);
-      cursor: default;
-      transition: border-color 0.2s, color 0.2s;
-    }
-    .step-item.active  { border-color: var(--accent-blue); color: var(--text); }
-    .step-item.done    { border-color: var(--success); color: var(--success); }
 
-    /* ── Cards ────────────────────────────────────────────────────────── */
-    .card {
-      background: var(--surface);
-      border: 1px solid var(--border);
+    /* Ticker input group */
+    .ticker-group { position: relative; display: flex; align-items: center; gap: 0.4rem; }
+    #topbar-ticker {
+      width: 80px; background: var(--bg-surface2); border: 1px solid var(--border);
+      border-radius: 6px; color: var(--text); padding: 0.3rem 0.6rem;
+      font-size: 0.82rem; font-family: var(--font); outline: none;
+      text-transform: uppercase; transition: border-color 0.15s, width 0.2s;
+    }
+    #topbar-ticker:focus { border-color: var(--accent); }
+    #topbar-ticker.error { border-color: var(--danger); }
+    .ticker-pill {
+      display: flex; align-items: center; gap: 0.35rem;
+      background: #eff6ff; border: 1px solid #bfdbfe;
+      border-radius: 20px; padding: 0.2rem 0.6rem 0.2rem 0.75rem;
+      font-size: 0.78rem; white-space: nowrap;
+    }
+    .ticker-pill .pill-ticker { font-weight: 700; color: var(--accent); }
+    .ticker-pill .pill-name { color: var(--text-muted); }
+    .ticker-pill .pill-cik { color: var(--text-muted); font-size: 0.72rem; }
+    .ticker-pill .pill-clear {
+      background: none; border: none; cursor: pointer; color: var(--text-muted);
+      font-size: 0.85rem; padding: 0 0.1rem; line-height: 1;
+      transition: color 0.15s;
+    }
+    .ticker-pill .pill-clear:hover { color: var(--danger); }
+    #topbar-ticker-error {
+      font-size: 0.75rem; color: var(--danger); white-space: nowrap;
+    }
+
+    /* Roll Forward button in topbar */
+    #topbar-roll-btn {
+      white-space: nowrap;
+      background: var(--accent); border: none; color: #fff;
+      padding: 0.35rem 0.9rem; border-radius: 6px;
+      font-size: 0.82rem; font-weight: 600; cursor: pointer;
+      transition: background 0.15s;
+      display: flex; align-items: center; gap: 0.35rem;
+    }
+    #topbar-roll-btn:hover { background: var(--accent-hover); }
+    #topbar-roll-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* ── Workspace ───────────────────────────────────────────────────── */
+    #workspace {
+      display: flex; flex: 1; overflow: hidden;
+    }
+
+    /* ── Left Sidebar ────────────────────────────────────────────────── */
+    #left-sidebar {
+      width: 280px; flex-shrink: 0;
+      background: var(--bg-surface);
+      border-right: 1px solid var(--border);
+      display: flex; flex-direction: column;
+      overflow-y: auto; overflow-x: hidden;
+      transition: width 0.2s ease;
+    }
+    #left-sidebar.collapsed { width: 0; }
+    .sidebar-inner { padding: 0.75rem 0; }
+
+    /* Accordion */
+    .acc-section { border-bottom: 1px solid var(--border); }
+    .acc-header {
+      width: 100%; display: flex; align-items: center; justify-content: space-between;
+      padding: 0.6rem 1rem; background: none; border: none;
+      font-size: 0.82rem; font-weight: 600; color: var(--text);
+      cursor: pointer; text-align: left; transition: background 0.15s;
+    }
+    .acc-header:hover { background: var(--bg-surface2); }
+    .acc-header .acc-icon { font-size: 0.65rem; color: var(--text-muted); transition: transform 0.2s; }
+    .acc-header.open .acc-icon { transform: rotate(90deg); }
+    .acc-body { padding: 0.5rem 1rem 0.75rem; display: none; }
+    .acc-body.open { display: block; }
+
+    /* Left sidebar section E (generate) — always visible */
+    .sidebar-generate {
+      padding: 0.75rem 1rem 1rem;
+      border-top: 1px solid var(--border); margin-top: auto;
+    }
+    #btn-sidebar-generate {
+      width: 100%; padding: 0.55rem; background: var(--accent); border: none;
+      color: #fff; border-radius: 6px; font-size: 0.88rem; font-weight: 600;
+      cursor: pointer; transition: background 0.15s;
+      display: flex; align-items: center; justify-content: center; gap: 0.4rem;
+    }
+    #btn-sidebar-generate:hover { background: var(--accent-hover); }
+    #btn-sidebar-generate:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* ── Center Canvas ───────────────────────────────────────────────── */
+    #center-canvas {
+      flex: 1; overflow-y: auto; padding: 1.5rem;
+      display: flex; justify-content: center; align-items: flex-start;
+      background: var(--bg-app);
+    }
+    #canvas-paper {
+      width: 100%; max-width: 860px;
+      background: var(--bg-canvas);
       border-radius: var(--radius);
-      padding: 1.5rem;
-      margin-bottom: 1.25rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,.1), 0 0 0 1px rgba(0,0,0,.04);
+      min-height: 500px;
     }
-    .card h2 { font-size: 1rem; font-weight: 600; margin-bottom: 1rem; }
-    .card.hidden { display: none; }
 
-    /* ── Form elements ────────────────────────────────────────────────── */
-    label { display: block; font-size: 0.82rem; color: var(--text-muted); margin-bottom: 0.3rem; margin-top: 0.9rem; }
-    label:first-child { margin-top: 0; }
-    input[type="text"], input[type="email"], input[type="file"] {
-      width: 100%;
-      background: var(--surface2);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      color: var(--text);
-      padding: 0.5rem 0.75rem;
-      font-size: 0.9rem;
-      font-family: var(--font);
-      outline: none;
-      transition: border-color 0.15s;
+    /* Canvas header bar */
+    .canvas-header {
+      padding: 1rem 1.5rem 0.75rem;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
     }
-    input[type="text"]:focus, input[type="email"]:focus {
-      border-color: var(--accent-blue);
-    }
-    input[type="file"] { cursor: pointer; padding: 0.4rem; }
+    .canvas-title { font-size: 0.95rem; font-weight: 600; }
+    .canvas-subtitle { font-size: 0.78rem; color: var(--text-muted); margin-top: 0.1rem; }
 
-    .toggle-row {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-      margin-top: 1rem;
+    /* Empty state */
+    #canvas-empty { padding: 3rem 2rem; }
+    .drop-zone {
+      border: 2px dashed var(--border); border-radius: var(--radius);
+      padding: 3rem 2rem; text-align: center;
+      transition: border-color 0.15s, background 0.15s;
+      cursor: pointer;
     }
-    /* Toggle switch */
-    .toggle { position: relative; display: inline-block; width: 40px; height: 22px; flex-shrink: 0; }
+    .drop-zone.drag-over { border-color: var(--accent); background: #eff6ff; }
+    .drop-zone-icon { font-size: 2.5rem; margin-bottom: 0.75rem; }
+    .drop-zone-text { font-size: 0.95rem; font-weight: 500; margin-bottom: 0.4rem; }
+    .drop-zone-hint { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1rem; }
+
+    /* Uploaded state */
+    #canvas-uploaded { padding: 0; }
+    .canvas-doc-header {
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 0.75rem;
+    }
+    .doc-icon { font-size: 1.3rem; }
+    .doc-name { font-size: 0.92rem; font-weight: 600; }
+    .doc-meta { font-size: 0.78rem; color: var(--text-muted); }
+    .canvas-section { padding: 1rem 1.5rem; border-bottom: 1px solid var(--border); }
+    .canvas-section:last-child { border-bottom: none; }
+    .canvas-section-title {
+      font-size: 0.78rem; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 0.6rem;
+    }
+
+    /* Generating state */
+    #canvas-generating { padding: 1.5rem; }
+
+    /* Done state */
+    #canvas-done { padding: 0; }
+
+    /* ── Right Sidebar ───────────────────────────────────────────────── */
+    #right-sidebar {
+      width: 320px; flex-shrink: 0;
+      background: var(--bg-surface);
+      border-left: 1px solid var(--border);
+      display: flex; flex-direction: column;
+      overflow: hidden;
+      transition: width 0.2s ease;
+    }
+    #right-sidebar.collapsed { width: 0; }
+
+    /* Right sidebar tabs */
+    .rtab-bar {
+      display: flex; border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .rtab {
+      flex: 1; padding: 0.6rem 0.3rem;
+      background: none; border: none; border-bottom: 2px solid transparent;
+      font-size: 0.75rem; font-weight: 500; color: var(--text-muted);
+      cursor: pointer; transition: all 0.15s; white-space: nowrap;
+    }
+    .rtab.active { border-bottom-color: var(--accent); color: var(--accent); }
+    .rtab:hover:not(.active) { color: var(--text); background: var(--bg-surface2); }
+    .rtab-pane { flex: 1; overflow-y: auto; padding: 0.75rem; display: flex; flex-direction: column; }
+    .rtab-pane.hidden { display: none; }
+
+    /* ── Form elements ───────────────────────────────────────────────── */
+    .form-group { margin-top: 0.75rem; }
+    .form-group:first-child { margin-top: 0; }
+    label {
+      display: block; font-size: 0.75rem; font-weight: 500;
+      color: var(--text-muted); margin-bottom: 0.25rem;
+    }
+    input[type="text"], input[type="email"], input[type="password"] {
+      width: 100%; background: var(--bg-surface2); border: 1px solid var(--border);
+      border-radius: 6px; color: var(--text);
+      padding: 0.4rem 0.6rem; font-size: 0.82rem; font-family: var(--font);
+      outline: none; transition: border-color 0.15s;
+    }
+    input[type="text"]:focus, input[type="email"]:focus, input[type="password"]:focus {
+      border-color: var(--accent); background: #fff;
+    }
+    input[type="file"] {
+      width: 100%; background: var(--bg-surface2); border: 1px solid var(--border);
+      border-radius: 6px; color: var(--text);
+      padding: 0.35rem 0.5rem; font-size: 0.78rem; cursor: pointer;
+    }
+    select {
+      width: 100%; background: var(--bg-surface2); border: 1px solid var(--border);
+      border-radius: 6px; color: var(--text); padding: 0.4rem 0.6rem;
+      font-size: 0.82rem; font-family: var(--font); cursor: pointer; outline: none;
+    }
+    .period-group {
+      border: 1px solid var(--border); border-radius: 6px; padding: 0.65rem;
+      margin-bottom: 0.6rem;
+    }
+    .period-group-title {
+      font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.04em; color: var(--text-muted); margin-bottom: 0.5rem;
+    }
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 0 0.6rem; }
+
+    /* Toggle */
+    .toggle-row { display: flex; align-items: flex-start; gap: 0.6rem; margin-top: 0.6rem; }
+    .toggle { position: relative; display: inline-block; width: 36px; height: 20px; flex-shrink: 0; margin-top: 1px; }
     .toggle input { opacity: 0; width: 0; height: 0; }
     .slider {
       position: absolute; cursor: pointer; inset: 0;
-      background: var(--border); border-radius: 22px;
-      transition: background 0.2s;
+      background: var(--border); border-radius: 20px; transition: background 0.2s;
     }
     .slider::before {
-      content: ""; position: absolute;
-      height: 16px; width: 16px; left: 3px; bottom: 3px;
-      background: #fff; border-radius: 50%;
-      transition: transform 0.2s;
+      content: ""; position: absolute; height: 14px; width: 14px; left: 3px; bottom: 3px;
+      background: #fff; border-radius: 50%; transition: transform 0.2s;
     }
-    .toggle input:checked + .slider { background: var(--accent-blue); }
-    .toggle input:checked + .slider::before { transform: translateX(18px); }
-    .toggle-label { font-size: 0.88rem; }
-    .toggle-hint { font-size: 0.78rem; color: var(--text-muted); }
+    .toggle input:checked + .slider { background: var(--accent); }
+    .toggle input:checked + .slider::before { transform: translateX(16px); }
+    .toggle-label { font-size: 0.8rem; font-weight: 500; }
+    .toggle-hint { font-size: 0.72rem; color: var(--text-muted); margin-top: 0.1rem; }
 
-    /* ── Buttons ──────────────────────────────────────────────────────── */
+    /* ── Buttons ─────────────────────────────────────────────────────── */
     .btn {
-      display: inline-flex; align-items: center; gap: 0.4rem;
-      padding: 0.5rem 1.1rem;
-      border: none; border-radius: 6px;
-      font-size: 0.88rem; font-weight: 500; font-family: var(--font);
+      display: inline-flex; align-items: center; gap: 0.35rem;
+      padding: 0.4rem 0.85rem; border: none; border-radius: 6px;
+      font-size: 0.82rem; font-weight: 500; font-family: var(--font);
       cursor: pointer; transition: background 0.15s, opacity 0.15s;
     }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
     .btn-primary { background: var(--accent); color: #fff; }
-    .btn-primary:hover { background: var(--accent-hover); }
-    .btn-blue { background: var(--accent-blue); color: #fff; }
-    .btn-blue:hover { background: var(--accent-blue-h); }
+    .btn-primary:hover:not(:disabled) { background: var(--accent-hover); }
     .btn-outline {
-      background: transparent; color: var(--text-muted);
-      border: 1px solid var(--border);
+      background: transparent; border: 1px solid var(--border); color: var(--text);
     }
-    .btn-outline:hover { border-color: var(--text-muted); color: var(--text); }
-    .btn:disabled { opacity: 0.45; cursor: not-allowed; }
-    .btn-row { display: flex; gap: 0.75rem; margin-top: 1.25rem; flex-wrap: wrap; }
+    .btn-outline:hover:not(:disabled) { background: var(--bg-surface2); }
+    .btn-danger { background: var(--danger); color: #fff; }
+    .btn-sm { padding: 0.25rem 0.6rem; font-size: 0.78rem; }
+    .btn-row { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.6rem; }
 
-    /* ── Status / alerts ──────────────────────────────────────────────── */
+    /* ── Alerts ──────────────────────────────────────────────────────── */
     .alert {
-      padding: 0.7rem 1rem;
-      border-radius: 6px;
-      font-size: 0.85rem;
-      margin-top: 0.75rem;
-      display: none;
+      font-size: 0.78rem; padding: 0.45rem 0.65rem; border-radius: 6px;
+      margin-top: 0.5rem; line-height: 1.4;
     }
-    .alert.show { display: block; }
-    .alert-info    { background: #1c2d3e; border: 1px solid var(--accent-blue); color: #58a6ff; }
-    .alert-success { background: #0d2b1b; border: 1px solid var(--success); color: var(--success); }
-    .alert-warning { background: #2d1f03; border: 1px solid var(--warning); color: var(--warning); }
-    .alert-danger  { background: #2d0d0d; border: 1px solid var(--danger); color: var(--danger); }
+    .alert-danger { background: #fef2f2; border: 1px solid #fecaca; color: var(--danger); }
+    .alert-success { background: #f0fdf4; border: 1px solid #bbf7d0; color: var(--success); }
+    .alert-info { background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; }
+    .alert-warning { background: #fffbeb; border: 1px solid #fde68a; color: var(--warning); }
+    .alert.hidden, .hidden { display: none !important; }
 
-    /* ── Spinner ──────────────────────────────────────────────────────── */
+    /* ── Spinner ─────────────────────────────────────────────────────── */
     .spinner {
-      display: inline-block; width: 16px; height: 16px;
-      border: 2px solid rgba(255,255,255,0.3);
-      border-top-color: #fff;
-      border-radius: 50%;
-      animation: spin 0.6s linear infinite;
+      display: inline-block; width: 12px; height: 12px;
+      border: 2px solid rgba(255,255,255,.4); border-top-color: #fff;
+      border-radius: 50%; animation: spin 0.7s linear infinite;
+    }
+    .spinner.dark {
+      border-color: rgba(0,0,0,.15); border-top-color: var(--accent);
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* ── Table map preview ────────────────────────────────────────────── */
-    .table-map-wrap {
-      max-height: 300px; overflow-y: auto;
-      border: 1px solid var(--border); border-radius: 6px;
-      margin-top: 0.75rem;
-      font-size: 0.78rem;
+    /* ── Progress log ────────────────────────────────────────────────── */
+    .progress-log {
+      background: #1e2530; border-radius: 6px; padding: 0.75rem 1rem;
+      max-height: 320px; overflow-y: auto; font-family: monospace; font-size: 0.78rem;
     }
-    .table-map-wrap table {
-      width: 100%; border-collapse: collapse;
-    }
-    .table-map-wrap th, .table-map-wrap td {
-      padding: 0.4rem 0.65rem;
-      border-bottom: 1px solid var(--border);
-      text-align: left;
-      vertical-align: top;
-    }
+    .log-line { display: flex; gap: 0.5rem; padding: 0.15rem 0; color: #a0aec0; line-height: 1.4; }
+    .log-line.done { color: #68d391; }
+    .log-line.error { color: #fc8181; }
+    .log-icon { flex-shrink: 0; }
+
+    /* ── Table map ───────────────────────────────────────────────────── */
+    .table-map-wrap { overflow-x: auto; }
+    .table-map-wrap table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
     .table-map-wrap th {
-      background: var(--surface2);
-      color: var(--text-muted);
-      font-weight: 600;
-      position: sticky; top: 0;
+      text-align: left; font-size: 0.7rem; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.04em; color: var(--text-muted); padding: 0.4rem 0.6rem;
+      border-bottom: 1px solid var(--border); background: var(--bg-surface2);
+    }
+    .table-map-wrap td {
+      padding: 0.4rem 0.6rem; border-bottom: 1px solid var(--border); vertical-align: top;
     }
     .table-map-wrap tr:last-child td { border-bottom: none; }
     .idx-badge {
-      display: inline-block; padding: 0.1rem 0.45rem;
-      background: var(--surface2); border: 1px solid var(--border);
-      border-radius: 4px; font-weight: 600; color: var(--accent-blue-h);
+      display: inline-block; background: var(--bg-surface2); border: 1px solid var(--border);
+      border-radius: 4px; padding: 0.1rem 0.4rem; font-weight: 600; font-size: 0.75rem;
     }
+    .type-badge {
+      display: inline-block; border-radius: 4px; padding: 0.15rem 0.45rem;
+      font-size: 0.72rem; font-weight: 600; cursor: pointer;
+    }
+    .type-badge.balance_sheet   { background: #dbeafe; color: #1e40af; }
+    .type-badge.income_statement { background: #dcfce7; color: #166534; }
+    .type-badge.cash_flow        { background: #fef3c7; color: #92400e; }
+    .type-badge.eps              { background: #f3e8ff; color: #6b21a8; }
+    .type-badge.stockholders_equity { background: #fce7f3; color: #9d174d; }
 
-    /* ── EDGAR preview ────────────────────────────────────────────────── */
-    .edgar-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 0.5rem 1rem;
-      font-size: 0.82rem;
-      margin-top: 0.5rem;
-      max-height: 250px; overflow-y: auto;
-    }
-    .edgar-fact { display: flex; justify-content: space-between; gap: 0.5rem; }
-    .edgar-concept { color: var(--text-muted); }
-    .edgar-val { font-family: monospace; font-weight: 600; }
-
-    /* ── Stats ────────────────────────────────────────────────────────── */
-    .stat-grid {
-      display: grid; grid-template-columns: repeat(2, 1fr);
-      gap: 0.75rem; margin-top: 0.75rem;
-    }
-    @media (min-width: 540px) {
-      .stat-grid { grid-template-columns: repeat(4, 1fr); }
-    }
+    /* ── Stats grid ──────────────────────────────────────────────────── */
+    .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.75rem; margin-top: 0.5rem; }
     .stat-box {
-      background: var(--surface2); border: 1px solid var(--border);
-      border-radius: 6px; padding: 0.75rem 1rem; text-align: center;
+      background: var(--bg-surface2); border: 1px solid var(--border);
+      border-radius: 6px; padding: 0.75rem; text-align: center;
     }
-    .stat-num { font-size: 1.6rem; font-weight: 700; line-height: 1; }
-    .stat-lbl { font-size: 0.72rem; color: var(--text-muted); margin-top: 0.25rem; }
+    .stat-num { font-size: 1.5rem; font-weight: 700; color: var(--accent); }
+    .stat-lbl { font-size: 0.72rem; color: var(--text-muted); margin-top: 0.15rem; }
 
-    /* ── Checklist ────────────────────────────────────────────────────── */
+    /* Verification badges */
+    .v-row { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.5rem; }
+    .vbadge {
+      display: inline-flex; align-items: center; gap: 0.25rem;
+      border-radius: 4px; padding: 0.25rem 0.55rem; font-size: 0.75rem; font-weight: 500;
+    }
+    .vbadge.pass { background: #f0fdf4; border: 1px solid #86efac; color: var(--success); }
+    .vbadge.fail { background: #fef2f2; border: 1px solid #fca5a5; color: var(--danger); }
+    .vbadge.warn { background: #fffbeb; border: 1px solid #fde68a; color: var(--warning); }
+    .missing-list { font-size: 0.75rem; color: var(--warning); margin-top: 0.4rem; }
+    .warn-list { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem; }
+
+    /* Changes panel */
+    .changes-panel {
+      background: var(--bg-surface2); border: 1px solid var(--border);
+      border-radius: 6px; margin-top: 0.75rem; overflow: hidden;
+    }
+    .changes-header {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 0.6rem 0.85rem; cursor: pointer; font-size: 0.82rem; font-weight: 600;
+      user-select: none; transition: background 0.15s;
+    }
+    .changes-header:hover { background: #edf0f4; }
+    .changes-body { padding: 0.6rem 0.85rem; }
+    .filter-row { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 0.5rem; }
+    .filter-btn {
+      font-size: 0.72rem; padding: 0.15rem 0.5rem;
+      background: var(--bg-surface); border: 1px solid var(--border);
+      border-radius: 4px; cursor: pointer; color: var(--text-muted); transition: all 0.12s;
+    }
+    .filter-btn.active, .filter-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .change-item { display: flex; gap: 0.5rem; padding: 0.25rem 0; font-size: 0.78rem; align-items: flex-start; }
+    .change-type {
+      flex-shrink: 0; border-radius: 3px; padding: 0.05rem 0.35rem;
+      font-size: 0.68rem; font-weight: 600;
+    }
+    .change-type.text_replacement { background: #dbeafe; color: #1e40af; }
+    .change-type.table_blanked    { background: #fce7f3; color: #9d174d; }
+    .change-type.edgar_inserted   { background: #dcfce7; color: #166534; }
+    .change-detail { color: var(--text-muted); line-height: 1.4; }
+
+    /* Checklist */
     .checklist { list-style: none; margin-top: 0.5rem; }
     .checklist li {
       display: flex; align-items: flex-start; gap: 0.5rem;
-      padding: 0.35rem 0;
-      border-bottom: 1px solid var(--border);
-      font-size: 0.85rem;
+      padding: 0.3rem 0; font-size: 0.8rem; border-bottom: 1px solid var(--border);
     }
     .checklist li:last-child { border-bottom: none; }
-    .checklist li input[type="checkbox"] { margin-top: 2px; accent-color: var(--accent); }
+    .checklist input[type="checkbox"] { margin-top: 0.15rem; flex-shrink: 0; cursor: pointer; }
     .hl-note {
-      background: #2d2200; border: 1px solid var(--warning);
-      border-radius: 6px; padding: 0.6rem 0.9rem;
-      font-size: 0.83rem; color: var(--warning);
-      margin-top: 0.75rem;
+      background: #fffbeb; border: 1px solid #fde68a; color: var(--warning);
+      border-radius: 6px; padding: 0.5rem 0.75rem; font-size: 0.78rem;
+      margin: 0.5rem 0;
     }
 
-    /* ── Verification badges ──────────────────────────────────────────── */
-    .vbadge {
-      display: inline-flex; align-items: center; gap: 0.35rem;
-      padding: 0.2rem 0.55rem; border-radius: 4px; font-size: 0.78rem; font-weight: 500;
+    /* ── MD&A review drawer ──────────────────────────────────────────── */
+    #mda-drawer {
+      border-top: 2px solid var(--accent); margin-top: 1rem;
+      background: var(--bg-surface2); border-radius: 0 0 var(--radius) var(--radius);
+      padding: 1rem 1.5rem;
     }
-    .vbadge.pass { background: #0d2b1b; color: var(--success); border: 1px solid var(--success); }
-    .vbadge.fail { background: #2d0d0d; color: var(--danger);  border: 1px solid var(--danger);  }
-    .vbadge.warn { background: #2d1f03; color: var(--warning); border: 1px solid var(--warning); }
-    .v-row { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.5rem; }
+    .mda-header {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 0.75rem;
+    }
+    .mda-title { font-size: 0.92rem; font-weight: 600; }
+    .mda-api-row { display: flex; gap: 0.6rem; align-items: flex-end; margin-bottom: 0.75rem; }
+    .mda-api-row > div { flex: 1; }
+    .suggestion-list { display: flex; flex-direction: column; gap: 0.75rem; }
+    .suggestion-card {
+      background: var(--bg-canvas); border: 1px solid var(--border); border-radius: 6px; overflow: hidden;
+    }
+    .suggestion-header {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 0.5rem 0.75rem; background: var(--bg-surface2);
+      font-size: 0.78rem; font-weight: 600;
+    }
+    .confidence-badge {
+      font-size: 0.7rem; padding: 0.1rem 0.4rem; border-radius: 4px;
+    }
+    .confidence-badge.high   { background: #dcfce7; color: var(--success); }
+    .confidence-badge.medium { background: #fef3c7; color: var(--warning); }
+    .confidence-badge.low, .confidence-badge.error { background: #fef2f2; color: var(--danger); }
+    .suggestion-cols { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid var(--border); }
+    .suggestion-col { padding: 0.6rem 0.75rem; font-size: 0.78rem; line-height: 1.5; }
+    .suggestion-col:first-child { border-right: 1px solid var(--border); }
+    .suggestion-col-header { font-size: 0.68rem; font-weight: 600; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.3rem; }
+    .suggestion-col textarea {
+      width: 100%; background: transparent; border: none; outline: none;
+      color: var(--text); font-family: var(--font); font-size: 0.78rem;
+      line-height: 1.5; resize: vertical; min-height: 70px;
+    }
+    .suggestion-actions {
+      display: flex; gap: 0.4rem; padding: 0.4rem 0.75rem; border-top: 1px solid var(--border);
+    }
+    .suggestion-card.accepted { border-color: #86efac; }
+    .suggestion-card.rejected { opacity: 0.5; }
 
-    /* ── Missing facts list ───────────────────────────────────────────── */
-    .missing-list {
-      font-size: 0.78rem; font-family: monospace;
-      color: var(--warning); margin-top: 0.5rem;
-      max-height: 120px; overflow-y: auto;
+    /* ── EDGAR facts grid ────────────────────────────────────────────── */
+    .edgar-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.3rem; margin-top: 0.5rem; }
+    .edgar-fact {
+      background: var(--bg-surface2); border: 1px solid var(--border);
+      border-radius: 4px; padding: 0.3rem 0.5rem;
+      display: flex; flex-direction: column; gap: 0.1rem; overflow: hidden;
     }
-    .missing-list div { padding: 0.15rem 0; }
+    .edgar-concept { font-size: 0.68rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .edgar-val { font-size: 0.78rem; font-weight: 600; color: var(--accent); }
 
-    /* ── Warnings list ────────────────────────────────────────────────── */
-    .warn-list { margin-top: 0.5rem; }
-    .warn-list div {
-      font-size: 0.8rem; color: var(--warning);
-      padding: 0.2rem 0; border-bottom: 1px solid var(--border);
+    /* ── Compliance citations (right sidebar tab 1) ───────────────────── */
+    .sidebar-section-tabs { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-bottom: 0.6rem; }
+    .sidebar-tab {
+      font-size: 0.7rem; padding: 0.2rem 0.5rem;
+      background: var(--bg-surface2); border: 1px solid var(--border);
+      border-radius: 4px; cursor: pointer; color: var(--text-muted); transition: all 0.12s;
     }
+    .sidebar-tab.active, .sidebar-tab:hover { border-color: var(--accent); color: var(--accent); }
+    .sidebar-citations { flex: 1; overflow-y: auto; margin-bottom: 0.5rem; }
+    .citation-card {
+      background: var(--bg-surface2); border: 1px solid var(--border);
+      border-radius: 6px; padding: 0.5rem 0.65rem; margin-bottom: 0.4rem;
+      font-size: 0.75rem;
+    }
+    .citation-source { color: var(--accent); font-weight: 600; margin-bottom: 0.2rem; }
+    .citation-excerpt { color: var(--text-muted); line-height: 1.4; }
+    .sidebar-explain-btn {
+      width: 100%; background: var(--bg-surface2); border: 1px solid var(--border);
+      color: var(--text-muted); border-radius: 6px; padding: 0.4rem;
+      font-size: 0.78rem; cursor: pointer; transition: all 0.15s; margin-top: auto;
+    }
+    .sidebar-explain-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .sidebar-rationale {
+      margin-top: 0.6rem; font-size: 0.75rem; color: var(--text);
+      line-height: 1.5; border-top: 1px solid var(--border); padding-top: 0.6rem;
+    }
+
+    /* ── Chat (right sidebar tab 2) ──────────────────────────────────── */
+    .chat-pane { display: flex; flex-direction: column; height: 100%; }
+    .chat-messages {
+      flex: 1; overflow-y: auto; display: flex; flex-direction: column;
+      gap: 0.6rem; padding-bottom: 0.5rem;
+    }
+    .chat-msg { max-width: 90%; }
+    .chat-msg.user { align-self: flex-end; }
+    .chat-msg.assistant { align-self: flex-start; }
+    .chat-bubble-msg {
+      padding: 0.45rem 0.65rem; border-radius: 10px; font-size: 0.78rem; line-height: 1.5;
+    }
+    .chat-msg.user .chat-bubble-msg { background: var(--accent); color: #fff; }
+    .chat-msg.assistant .chat-bubble-msg {
+      background: var(--bg-surface2); color: var(--text); border: 1px solid var(--border);
+    }
+    .chat-citations { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-top: 0.3rem; }
+    .chat-citation-chip {
+      font-size: 0.65rem; padding: 0.1rem 0.35rem;
+      background: #eff6ff; border: 1px solid #bfdbfe; color: var(--accent);
+      border-radius: 3px;
+    }
+    .chat-empty {
+      flex: 1; display: flex; align-items: center; justify-content: center;
+      color: var(--text-muted); font-size: 0.78rem; text-align: center; padding: 1rem;
+    }
+    .chat-api-row {
+      display: flex; gap: 0.3rem; align-items: center; padding: 0.4rem 0;
+      border-top: 1px solid var(--border); margin-top: 0.4rem;
+    }
+    .chat-api-row label { font-size: 0.68rem; margin: 0; white-space: nowrap; }
+    .chat-api-row input { flex: 1; font-size: 0.72rem; padding: 0.2rem 0.4rem; }
+    .chat-controls-row { display: flex; justify-content: flex-end; gap: 0.35rem; margin-bottom: 0.4rem; }
+    .chat-controls-row button {
+      font-size: 0.72rem; padding: 0.15rem 0.5rem;
+      background: none; border: 1px solid var(--border); border-radius: 4px;
+      cursor: pointer; color: var(--text-muted); transition: all 0.12s;
+    }
+    .chat-controls-row button:hover { border-color: var(--accent); color: var(--accent); }
+    .chat-input-row { display: flex; gap: 0.4rem; padding-top: 0.4rem; border-top: 1px solid var(--border); margin-top: 0.4rem; }
+    .chat-input-row input[type="text"] { flex: 1; font-size: 0.8rem; }
+    .chat-send-btn {
+      background: var(--accent); border: none; color: #fff;
+      border-radius: 6px; padding: 0.4rem 0.7rem; cursor: pointer; font-size: 0.78rem;
+      transition: background 0.15s;
+    }
+    .chat-send-btn:hover { background: var(--accent-hover); }
+    .chat-send-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    /* ── Canvas section dividers ─────────────────────────────────────── */
+    .results-section { padding: 1rem 1.5rem; border-bottom: 1px solid var(--border); }
+    .results-section:last-child { border-bottom: none; }
+    .results-section-title {
+      font-size: 0.78rem; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 0.6rem;
+    }
+
+    /* Scrollbar light theme */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+
+    /* ── Mode tabs (Section A) ───────────────────────────────────────── */
+    .mode-tab {
+      flex:1; padding:0.35rem 0.5rem; background:none; border:none;
+      border-bottom:2px solid transparent; font-size:0.78rem; font-weight:500;
+      color:var(--text-muted); cursor:pointer; transition:all 0.15s;
+    }
+    .mode-tab.active { border-bottom-color:var(--accent); color:var(--accent); }
+    .mode-tab:hover:not(.active) { color:var(--text); }
+
+    /* ── docx-preview renderer ───────────────────────────────────────── */
+    #docx-render-area {
+      overflow-y: auto;
+      background: #e8e8e8; padding: 1.5rem;
+    }
+    #docx-render-area .docx-wrapper {
+      background: transparent !important; padding: 0 !important;
+    }
+    #docx-render-area section.docx {
+      box-shadow: 0 2px 8px rgba(0,0,0,.18);
+      margin: 0 auto 1.5rem !important;
+    }
+    /* When render area is in edit mode */
+    #docx-render-area[contenteditable="true"] {
+      outline: none;
+      box-shadow: inset 0 0 0 2px var(--accent);
+      cursor: text;
+    }
+    #docx-render-area[contenteditable="true"] section.docx,
+    #docx-render-area[contenteditable="true"] .docx-wrapper > * {
+      cursor: text;
+    }
+    /* edit-mode toolbar badge */
+    .edit-badge {
+      font-size: 0.7rem; padding: 0.1rem 0.45rem; border-radius: 3px;
+      background: #fef3c7; border: 1px solid #fde68a; color: #92400e;
+      font-weight: 600;
+    }
+
+    /* ── Filing period dropdown (topbar) ─────────────────────────────── */
+    .filing-group {
+      display: flex; align-items: center; gap: 0.4rem;
+    }
+    .filing-select {
+      height: 2rem; padding: 0 0.5rem; border: 1px solid var(--border);
+      border-radius: 4px; background: var(--bg-surface2); color: var(--text);
+      font-size: 0.82rem; min-width: 220px; cursor: pointer; font-family: var(--font);
+      outline: none;
+    }
+    .filing-select:focus { border-color: var(--accent); }
+
+    /* ── Canvas loading state ────────────────────────────────────────── */
+    .canvas-center-placeholder {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      min-height: 420px; gap: 1rem; text-align: center; color: var(--text-muted);
+    }
+    .spinner-lg {
+      width: 40px; height: 40px; border: 4px solid var(--border);
+      border-top-color: var(--accent); border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    /* ── Canvas viewer state ─────────────────────────────────────────── */
+    #canvas-viewer { padding: 0; display: flex; flex-direction: column; }
+    .viewer-toolbar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0.5rem 1rem; border-bottom: 1px solid var(--border);
+      background: var(--bg-surface2); flex-shrink: 0;
+    }
+
+    /* ── Sub-accordion (tools panel) ─────────────────────────────────── */
+    .sub-acc-section { border-top: 1px solid var(--border); }
+    .sub-acc-header {
+      width: 100%; display: flex; align-items: center; justify-content: space-between;
+      padding: 0.45rem 0.75rem; background: none; border: none;
+      font-size: 0.78rem; font-weight: 600; color: var(--text-muted);
+      cursor: pointer; text-align: left; transition: background 0.15s;
+    }
+    .sub-acc-header:hover { background: var(--bg-surface2); }
+    .sub-acc-header .acc-icon { font-size: 0.6rem; transition: transform 0.2s; }
+    .sub-acc-header.open .acc-icon { transform: rotate(90deg); }
+    .sub-acc-body { padding: 0.5rem 0.75rem 0.75rem; display: none; }
+    .sub-acc-body.open { display: block; }
+
+    /* ── Canvas uploaded: flex column so toolbar + render area stack ─── */
+    #canvas-uploaded {
+      padding: 0; display: flex; flex-direction: column;
+      height: calc(100vh - 52px); /* viewport minus topbar */
+    }
+    #docx-render-area {
+      overflow-y: auto; flex: 1; min-height: 0;
+      background: #e8e8e8; padding: 1.5rem;
+    }
+
+    /* ── Edit toolbar ─────────────────────────────────────────────────── */
+    #edit-toolbar {
+      display: none; flex-wrap: wrap; align-items: center;
+      gap: 2px; padding: 4px 8px;
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    #edit-toolbar.visible { display: flex; }
+    .etb-btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 28px; height: 26px; border: none; border-radius: 4px;
+      background: transparent; color: var(--text); cursor: pointer;
+      font-size: 0.82rem; font-family: var(--font); padding: 0;
+      transition: background 0.12s; flex-shrink: 0;
+    }
+    .etb-btn:hover { background: var(--bg-surface2); }
+    .etb-btn.etb-active { background: #dbeafe; color: var(--accent); }
+    .etb-sep {
+      width: 1px; height: 18px; background: var(--border);
+      margin: 0 3px; flex-shrink: 0;
+    }
+    .etb-select {
+      height: 26px; padding: 0 4px; border: 1px solid var(--border);
+      border-radius: 4px; background: var(--bg-surface2); color: var(--text);
+      font-size: 0.78rem; font-family: var(--font); cursor: pointer; outline: none;
+      transition: border-color 0.12s;
+    }
+    .etb-select:focus { border-color: var(--accent); }
+    .etb-color-wrap {
+      position: relative; display: inline-flex; align-items: center;
+    }
+    .etb-color-wrap input[type="color"] {
+      width: 0; height: 0; opacity: 0; position: absolute;
+      top: 0; left: 0; pointer-events: none; padding: 0; border: none;
+    }
+    .etb-color-swatch {
+      display: inline-flex; flex-direction: column; align-items: center;
+      justify-content: center; gap: 1px;
+      width: 28px; height: 26px; border: none; border-radius: 4px;
+      background: transparent; cursor: pointer; font-size: 0.82rem;
+      transition: background 0.12s;
+    }
+    .etb-color-swatch:hover { background: var(--bg-surface2); }
+    .etb-color-bar { width: 14px; height: 3px; border-radius: 1px; }
   </style>
 </head>
 <body>
-<div class="container">
 
-  <header>
-    <h1>SEC 10-Q Roll-Forward Tool</h1>
-    <p>Daily Journal Corporation (DJCO) &mdash; Q1 FY2026 &rarr; Q2 FY2026</p>
-  </header>
+<!-- ══════════════════════════════════════════════════════════════════
+     TOPBAR
+══════════════════════════════════════════════════════════════════ -->
+<header id="topbar">
+  <button class="hamburger" id="btn-left-toggle" title="Toggle left panel">&#9776;</button>
+  <span class="app-brand">SEC Filing Platform</span>
 
-  <!-- Step progress bar -->
-  <nav class="steps">
-    <div class="step-item active" id="step-nav-1">1 &mdash; Upload</div>
-    <div class="step-item"       id="step-nav-2">2 &mdash; Configure</div>
-    <div class="step-item"       id="step-nav-3">3 &mdash; Generate</div>
-  </nav>
+  <div class="topbar-center">
+    <select id="topbar-form-type" title="Form type">
+      <option value="10-Q" selected>10-Q</option>
+      <option value="10-K">10-K</option>
+    </select>
 
-  <!-- ════════════════════════════════════════════════════════════════
-       STEP 1 — Upload
-  ═════════════════════════════════════════════════════════════════ -->
-  <section id="step-1">
-    <div class="card">
-      <h2>Upload Source Document</h2>
-      <label for="file-input">Select Q1 10-Q draft (.docx)</label>
-      <input type="file" id="file-input" accept=".docx" />
-      <div class="btn-row">
-        <button class="btn btn-blue" id="btn-upload">
-          <span class="spinner" id="upload-spinner" style="display:none"></span>
-          Upload &amp; Inspect
+    <div class="ticker-group">
+      <input type="text" id="topbar-ticker" placeholder="DJCO" maxlength="12"
+             title="Enter ticker symbol" autocomplete="off" spellcheck="false" />
+      <div id="topbar-ticker-pill" class="ticker-pill hidden">
+        <span class="pill-ticker" id="topbar-ticker-symbol"></span>
+        <span class="pill-sep" style="color:var(--text-muted)">·</span>
+        <span class="pill-name" id="topbar-company-name"></span>
+        <span class="pill-sep" style="color:var(--text-muted)">·</span>
+        <span class="pill-cik">CIK <span id="topbar-cik"></span></span>
+        <button class="pill-clear" id="btn-ticker-clear" title="Clear ticker">&#215;</button>
+      </div>
+      <span id="topbar-ticker-error" class="hidden" style="font-size:0.72rem;color:var(--danger);white-space:nowrap">Not found</span>
+    </div>
+
+    <div class="filing-group" id="filing-group" style="display:none">
+      <select id="filing-select" class="filing-select">
+        <option value="">&#8212; Select filing period &#8212;</option>
+      </select>
+      <span class="spinner dark hidden" id="filing-load-spinner"></span>
+    </div>
+  </div>
+
+  <div class="topbar-actions">
+    <button class="hamburger" id="btn-right-toggle" title="Toggle right panel">&#9776;</button>
+  </div>
+</header>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     WORKSPACE
+══════════════════════════════════════════════════════════════════ -->
+<div id="workspace">
+
+  <!-- ══ LEFT SIDEBAR ══════════════════════════════════════════════ -->
+  <aside id="left-sidebar">
+    <div class="sidebar-inner">
+
+      <!-- A) Tools -->
+      <div class="acc-section" id="acc-document">
+        <button class="acc-header" onclick="toggleAcc('document')">
+          A &mdash; Tools <span class="acc-icon">&#9654;</span>
+        </button>
+        <div class="acc-body">
+
+          <!-- A1: Roll-Forward sub-accordion (collapsed by default) -->
+          <div class="sub-acc-section" id="sub-acc-rollforward">
+            <button class="sub-acc-header" onclick="toggleSubAcc('rollforward')">
+              &#9889; Roll-Forward <span class="acc-icon">&#9654;</span>
+            </button>
+            <div class="sub-acc-body" id="sub-body-rollforward">
+              <!-- Source filing notice (shown when EDGAR HTML is loaded) -->
+              <div id="rf-source-notice" class="hidden"
+                   style="font-size:0.75rem;background:#eff6ff;border:1px solid #bfdbfe;
+                          border-radius:4px;padding:0.4rem 0.6rem;margin-bottom:0.6rem;
+                          display:flex;align-items:center;gap:0.4rem">
+                <span style="color:var(--accent);font-weight:600">Source:</span>
+                <span id="rf-source-label" style="color:var(--text)"></span>
+              </div>
+              <p style="font-size:0.75rem;color:var(--text-muted);margin-bottom:0.5rem">
+                Periods are auto-filled when a filing is selected above.
+              </p>
+
+              <!-- Period fields -->
+              <div class="period-group">
+                <div class="period-group-title">Source (filed)</div>
+                <div class="two-col">
+                  <div class="form-group">
+                    <label>Period end</label>
+                    <input type="text" id="src-label" placeholder="December 31, 2024" />
+                  </div>
+                  <div class="form-group">
+                    <label>Comparable</label>
+                    <input type="text" id="src-comparable" placeholder="December 31, 2023" />
+                  </div>
+                  <div class="form-group">
+                    <label>Quarter</label>
+                    <input type="text" id="src-quarter" placeholder="first" />
+                  </div>
+                  <div class="form-group">
+                    <label>YTD months</label>
+                    <input type="text" id="src-ytd-months" placeholder="3" />
+                  </div>
+                </div>
+              </div>
+
+              <div class="period-group">
+                <div class="period-group-title">Target (next draft)</div>
+                <div class="two-col">
+                  <div class="form-group">
+                    <label>Period end</label>
+                    <input type="text" id="tgt-label" placeholder="March 31, 2025" />
+                  </div>
+                  <div class="form-group">
+                    <label>Comparable</label>
+                    <input type="text" id="tgt-comparable" placeholder="March 31, 2024" />
+                  </div>
+                  <div class="form-group">
+                    <label>Quarter</label>
+                    <input type="text" id="tgt-quarter" placeholder="second" />
+                  </div>
+                  <div class="form-group">
+                    <label>YTD months</label>
+                    <input type="text" id="tgt-ytd-months" placeholder="6" />
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="prior-ye">Prior year-end <span style="font-weight:400">(Balance Sheet)</span></label>
+                <input type="text" id="prior-ye" placeholder="September 30, 2024" />
+              </div>
+
+              <!-- .docx upload (hidden when EDGAR HTML filing is active) -->
+              <div id="rf-docx-section" style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid var(--border)">
+                <div class="form-group">
+                  <label for="file-input">Or upload a .docx file</label>
+                  <input type="file" id="file-input" accept=".docx" />
+                </div>
+                <div class="btn-row">
+                  <button class="btn btn-outline btn-sm" id="btn-upload" style="flex:1">
+                    <span class="spinner dark" id="upload-spinner" style="display:none"></span>
+                    Upload &amp; Inspect
+                  </button>
+                </div>
+                <div class="alert alert-danger hidden" id="upload-error"></div>
+                <div class="alert alert-success hidden" id="upload-success"></div>
+              </div>
+
+              <div class="btn-row" style="margin-top:0.6rem">
+                <button class="btn btn-primary" id="btn-sidebar-generate" style="flex:1">
+                  <span class="spinner" id="sidebar-gen-spinner" style="display:none"></span>
+                  &#9889; Run Roll-Forward
+                </button>
+              </div>
+              <div class="alert alert-danger hidden" id="gen-error" style="margin-top:0.5rem"></div>
+
+              <div class="toggle-row" style="margin-top:0.5rem">
+                <label class="toggle"><input type="checkbox" id="ytd-toggle" /><span class="slider"></span></label>
+                <div>
+                  <div class="toggle-label">Add YTD columns</div>
+                  <div class="toggle-hint">Expands income statement Q1&rarr;Q2 structure.</div>
+                </div>
+              </div>
+              <div class="toggle-row">
+                <label class="toggle"><input type="checkbox" id="sse-toggle" checked /><span class="slider"></span></label>
+                <div>
+                  <div class="toggle-label">Real-time progress</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- B) Company -->
+      <div class="acc-section" id="acc-company">
+        <button class="acc-header open" onclick="toggleAcc('company')">
+          B &mdash; Company <span class="acc-icon">&#9654;</span>
+        </button>
+        <div class="acc-body open">
+          <div class="form-group">
+            <label for="sidebar-ticker">Ticker symbol</label>
+            <input type="text" id="sidebar-ticker" placeholder="DJCO" maxlength="12"
+                   autocomplete="off" spellcheck="false" style="text-transform:uppercase" />
+          </div>
+          <div class="form-group">
+            <label for="cik-input">CIK <span style="font-weight:400;color:var(--text-muted)">(auto-filled from ticker)</span></label>
+            <input type="text" id="cik-input" placeholder="0000783412" value="0000783412" />
+          </div>
+          <div id="sidebar-company-display" class="hidden" style="margin-top:0.4rem">
+            <div style="font-size:0.75rem;color:var(--text-muted)">Company</div>
+            <div id="sidebar-company-name" style="font-size:0.82rem;font-weight:600;color:var(--accent)"></div>
+          </div>
+          <div class="form-group">
+            <label for="ua-input">User-Agent <span style="font-weight:400">(required by SEC)</span></label>
+            <input type="text" id="ua-input" placeholder="Your Name your@email.com" />
+          </div>
+          <div class="alert alert-danger hidden" id="ticker-error"></div>
+        </div>
+      </div>
+
+      <!-- C) Periods -->
+      <div class="acc-section" id="acc-periods">
+        <button class="acc-header" onclick="toggleAcc('periods')">
+          C &mdash; Periods <span class="acc-icon">&#9654;</span>
+        </button>
+        <div class="acc-body">
+          <div class="form-group">
+            <label for="form-type-select">Form type</label>
+            <select id="form-type-select">
+              <option value="10-Q" selected>10-Q Quarterly</option>
+              <option value="10-K">10-K Annual</option>
+            </select>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-outline" id="btn-auto-detect" style="flex:1;font-size:0.78rem">
+              <span class="spinner dark" id="detect-spinner" style="display:none"></span>
+              Auto-Detect from EDGAR
+            </button>
+          </div>
+          <div class="alert alert-info hidden" id="detect-loading">Fetching from EDGAR&hellip;</div>
+          <div class="alert alert-danger hidden" id="detect-error"></div>
+          <div id="detect-result" class="hidden" style="margin-top:0.4rem">
+            <div class="alert alert-success" style="margin-top:0">
+              <strong>&#10003; Detected:</strong>
+              <span id="detect-summary" style="color:var(--text-muted)"></span>
+            </div>
+          </div>
+          <!-- Hidden filing-date inputs kept for JS compatibility -->
+          <input type="hidden" id="src-filing-date" />
+          <input type="hidden" id="tgt-filing-date" />
+          <div class="alert alert-warning hidden" id="period-warning"></div>
+        </div>
+      </div>
+
+      <!-- D) Options -->
+      <div class="acc-section" id="acc-options">
+        <button class="acc-header" onclick="toggleAcc('options')">
+          D &mdash; Options <span class="acc-icon">&#9654;</span>
+        </button>
+        <div class="acc-body">
+          <div class="form-group">
+            <label for="anthropic-key-input">Anthropic API Key <span style="font-weight:400">(AI features)</span></label>
+            <input type="password" id="anthropic-key-input" placeholder="sk-ant-..." autocomplete="off" />
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /sidebar-inner -->
+
+  </aside><!-- /left-sidebar -->
+
+  <!-- ══ CENTER CANVAS ══════════════════════════════════════════════ -->
+  <main id="center-canvas">
+    <div id="canvas-paper">
+
+      <!-- ─── Empty state ───────────────────────────────────────── -->
+      <div id="canvas-empty">
+        <div class="canvas-center-placeholder" style="padding:2.5rem 2rem">
+          <div style="font-size:2.5rem">&#128196;</div>
+          <div style="font-size:1rem;font-weight:600;color:var(--text)">SEC Filing Platform</div>
+          <div style="font-size:0.85rem;color:var(--text-muted)">Enter a ticker symbol above to begin.</div>
+          <!-- Drop zone preserved for .docx uploads via Roll-Forward panel -->
+          <div class="drop-zone" id="drop-zone" style="max-width:360px;margin-top:1rem">
+            <div class="drop-zone-icon">&#128196;</div>
+            <div class="drop-zone-text">Or drop a .docx to roll forward</div>
+            <div class="drop-zone-hint">Open <strong>A &mdash; Tools &rsaquo; Roll-Forward</strong> in the left panel</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ─── Loading state (filing viewer loading) ──────────────── -->
+      <div id="canvas-loading" class="hidden">
+        <div class="canvas-center-placeholder">
+          <div class="spinner-lg"></div>
+          <p style="font-size:0.9rem;font-weight:500">Loading filing from EDGAR&hellip;</p>
+          <p id="loading-filing-label" style="font-size:0.75rem;color:var(--text-muted)"></p>
+        </div>
+      </div>
+
+      <!-- ─── Viewer state (raw EDGAR filing) ───────────────────── -->
+      <div id="canvas-viewer" class="hidden">
+        <div class="viewer-toolbar">
+          <span id="viewer-filing-label" style="font-size:0.82rem;font-weight:500"></span>
+          <div class="btn-row" style="margin:0">
+            <button class="btn btn-outline btn-sm" id="btn-rollforward-this">&#9889; Roll Forward &#8599;</button>
+            <button class="btn btn-outline btn-sm" id="btn-download-viewer-html">&#8595; HTML</button>
+          </div>
+        </div>
+        <iframe id="viewer-iframe"
+                style="width:100%;height:calc(100vh - 120px);border:none;display:block"
+                sandbox="allow-same-origin allow-scripts allow-popups"></iframe>
+      </div>
+
+      <!-- ─── Docx preview / edit state ───────────────────────── -->
+      <div id="canvas-uploaded" class="hidden">
+        <div class="viewer-toolbar">
+          <div style="display:flex;align-items:center;gap:0.6rem">
+            <span style="font-size:1rem">&#128196;</span>
+            <div>
+              <span id="canvas-filename" style="font-size:0.85rem;font-weight:600"></span>
+              <span id="canvas-doc-meta" style="font-size:0.72rem;color:var(--text-muted);margin-left:0.5rem"></span>
+              <span class="edit-badge hidden" id="edit-mode-badge">EDITING</span>
+            </div>
+          </div>
+          <div class="btn-row" style="margin:0">
+            <button class="btn btn-outline btn-sm" id="btn-toggle-edit">&#9998; Edit</button>
+            <button class="btn btn-outline btn-sm hidden" id="btn-save-viewer-edits">&#128190; Save</button>
+            <button class="btn btn-outline btn-sm hidden" id="btn-download-rolled-html">&#8595; HTML</button>
+            <button class="btn btn-primary btn-sm" id="canvas-roll-btn">&#9889; Roll Forward &#8599;</button>
+            <button class="btn btn-outline btn-sm" id="canvas-change-file">&#8635; Change file</button>
+          </div>
+        </div>
+        <!-- Formatting toolbar — shown only in edit mode -->
+        <div id="edit-toolbar">
+          <!-- Undo / Redo -->
+          <button class="etb-btn" title="Undo (Ctrl+Z)" onclick="execCmd('undo')">&#8630;</button>
+          <button class="etb-btn" title="Redo (Ctrl+Y)" onclick="execCmd('redo')">&#8631;</button>
+          <div class="etb-sep"></div>
+
+          <!-- Font family -->
+          <select class="etb-select" id="etb-font-family" title="Font family" style="min-width:110px"
+                  onchange="execCmd('fontName', this.value)">
+            <option value="Arial">Arial</option>
+            <option value="Calibri" selected>Calibri</option>
+            <option value="Times New Roman">Times New Roman</option>
+            <option value="Courier New">Courier New</option>
+            <option value="Georgia">Georgia</option>
+            <option value="Verdana">Verdana</option>
+          </select>
+
+          <!-- Font size -->
+          <select class="etb-select" id="etb-font-size" title="Font size" style="min-width:52px"
+                  onchange="setEditorFontSize(this.value)">
+            <option>8</option><option>9</option><option>10</option>
+            <option>11</option><option selected>12</option><option>14</option>
+            <option>16</option><option>18</option><option>20</option>
+            <option>24</option><option>28</option><option>32</option>
+            <option>36</option><option>48</option><option>72</option>
+          </select>
+          <div class="etb-sep"></div>
+
+          <!-- Bold / Italic / Underline / Strikethrough -->
+          <button class="etb-btn" id="etb-bold" title="Bold (Ctrl+B)" onclick="execCmd('bold')"><strong>B</strong></button>
+          <button class="etb-btn" id="etb-italic" title="Italic (Ctrl+I)" onclick="execCmd('italic')"><em style="font-style:italic">I</em></button>
+          <button class="etb-btn" id="etb-underline" title="Underline (Ctrl+U)" onclick="execCmd('underline')"><u>U</u></button>
+          <button class="etb-btn" id="etb-strikethrough" title="Strikethrough" onclick="execCmd('strikeThrough')"><s>S</s></button>
+          <div class="etb-sep"></div>
+
+          <!-- Text color -->
+          <div class="etb-color-wrap" title="Text color">
+            <button class="etb-color-swatch" onclick="document.getElementById('etb-color').click()">
+              A<span class="etb-color-bar" id="etb-color-bar" style="background:#111928"></span>
+            </button>
+            <input type="color" id="etb-color" value="#111928"
+                   onchange="execCmd('foreColor', this.value); document.getElementById('etb-color-bar').style.background=this.value" />
+          </div>
+
+          <!-- Highlight color -->
+          <div class="etb-color-wrap" title="Highlight / background color">
+            <button class="etb-color-swatch" onclick="document.getElementById('etb-highlight').click()">
+              <span style="font-size:0.85rem;line-height:1">&#9638;</span>
+              <span class="etb-color-bar" id="etb-highlight-bar" style="background:#ffff00"></span>
+            </button>
+            <input type="color" id="etb-highlight" value="#ffff00"
+                   onchange="execCmd('hiliteColor', this.value); document.getElementById('etb-highlight-bar').style.background=this.value" />
+          </div>
+          <div class="etb-sep"></div>
+
+          <!-- Alignment -->
+          <button class="etb-btn" id="etb-align-left"    title="Align left"    onclick="execCmd('justifyLeft')"   style="font-size:0.7rem;letter-spacing:-1px">&#9475;&#8801;</button>
+          <button class="etb-btn" id="etb-align-center"  title="Center"        onclick="execCmd('justifyCenter')" style="font-size:0.7rem">&#8801;</button>
+          <button class="etb-btn" id="etb-align-right"   title="Align right"   onclick="execCmd('justifyRight')"  style="font-size:0.7rem;letter-spacing:-1px">&#8801;&#9475;</button>
+          <button class="etb-btn" id="etb-align-justify" title="Justify"       onclick="execCmd('justifyFull')"   style="font-size:0.7rem">&#8644;</button>
+          <div class="etb-sep"></div>
+
+          <!-- Lists -->
+          <button class="etb-btn" id="etb-ul" title="Bullet list"   onclick="execCmd('insertUnorderedList')" style="font-size:0.72rem">&#8226;&#8801;</button>
+          <button class="etb-btn" id="etb-ol" title="Numbered list" onclick="execCmd('insertOrderedList')"   style="font-size:0.72rem">1&#8801;</button>
+          <div class="etb-sep"></div>
+
+          <!-- Indent / Outdent -->
+          <button class="etb-btn" title="Decrease indent" onclick="execCmd('outdent')" style="font-size:0.85rem">&#8676;</button>
+          <button class="etb-btn" title="Increase indent" onclick="execCmd('indent')"  style="font-size:0.85rem">&#8677;</button>
+          <div class="etb-sep"></div>
+
+          <!-- Clear formatting -->
+          <button class="etb-btn" title="Clear formatting" onclick="execCmd('removeFormat')" style="font-size:0.75rem;text-decoration:line-through">A</button>
+        </div>
+
+        <!-- Document render area — toggled between read-only and contenteditable -->
+        <div id="docx-render-area">
+          <div class="canvas-center-placeholder">
+            <div class="spinner-lg"></div>
+            <p>Rendering document&hellip;</p>
+          </div>
+        </div>
+        <tbody id="table-map-body" style="display:none"></tbody>
+      </div>
+
+      <!-- ─── Generating state ──────────────────────────────────── -->
+      <div id="canvas-generating" class="hidden">
+        <div class="canvas-header">
+          <div>
+            <div class="canvas-title">Generating roll-forward&hellip;</div>
+            <div class="canvas-subtitle">Target: <strong id="gen-tgt-label"></strong></div>
+          </div>
+        </div>
+        <div style="padding:1rem 1.5rem">
+          <div class="progress-log" id="progress-log">
+            <div id="progress-log-lines"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ─── Done state ────────────────────────────────────────── -->
+      <div id="canvas-done" class="hidden">
+        <div class="canvas-header">
+          <div>
+            <div class="canvas-title">&#10003; Roll-forward complete</div>
+            <div class="canvas-subtitle" id="done-subtitle"></div>
+          </div>
+          <div class="btn-row" style="margin-top:0">
+            <button class="btn btn-primary btn-sm" id="btn-download-docx">&#8595; .docx</button>
+            <button class="btn btn-outline btn-sm"  id="btn-download-job-html">&#8595; HTML</button>
+            <button class="btn btn-outline btn-sm"  id="btn-download-job-pdf">&#8595; PDF</button>
+            <button class="btn btn-outline btn-sm"  id="btn-view-original">&#128196; View Original</button>
+            <button class="btn btn-outline btn-sm"  id="btn-restart">&#8635; Start Over</button>
+          </div>
+        </div>
+
+        <!-- Stats -->
+        <div class="results-section" id="results-card">
+          <div class="results-section-title">Summary</div>
+          <div class="stat-grid" id="stat-grid"></div>
+          <div class="results-section-title" style="margin-top:0.75rem">Verification</div>
+          <div class="v-row" id="v-row"></div>
+          <div class="missing-list" id="missing-list"></div>
+          <div class="warn-list" id="warn-list"></div>
+
+          <!-- Changes -->
+          <div class="changes-panel hidden" id="changes-panel" style="margin-top:0.75rem">
+            <div class="changes-header" id="changes-toggle">
+              <span>Changes Summary</span>
+              <span id="changes-count-badge" style="font-size:0.72rem;color:var(--text-muted)"></span>
+            </div>
+            <div class="changes-body hidden" id="changes-body">
+              <div class="filter-row" id="filter-row"></div>
+              <div id="changes-list"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Manual checklist -->
+        <div class="results-section">
+          <div class="results-section-title">Manual Review Checklist</div>
+          <div class="hl-note">
+            &#9888; MD&amp;A paragraphs with dollar amounts are highlighted yellow.
+            Use the AI Review drawer below for assisted narrative updates.
+          </div>
+          <ul class="checklist">
+            <li><input type="checkbox" /><span>Cover page shows <strong id="chk-tgt-label">target period</strong></span></li>
+            <li><input type="checkbox" /><span>Balance Sheet <strong id="chk-prior-ye">prior year-end</strong> column intact</span></li>
+            <li><input type="checkbox" /><span>Income statement <strong id="chk-tgt-comparable">comparable period</strong> column filled</span></li>
+            <li><input type="checkbox" /><span>Income statement <strong id="chk-tgt-current">current period</strong> column is blank</span></li>
+            <li><input type="checkbox" /><span>No &ldquo;<span id="chk-src-label">source date</span>&rdquo; remains in document</span></li>
+            <li><input type="checkbox" /><span><code>[FILING DATE]</code> placeholder filled in</span></li>
+          </ul>
+          <div class="btn-row" style="margin-top:0.75rem">
+            <button class="btn btn-outline btn-sm" id="btn-to-step4">
+              &#129302; Review MD&amp;A with AI &#8595;
+            </button>
+          </div>
+        </div>
+
+        <!-- MD&A review drawer -->
+        <div id="mda-drawer" class="hidden">
+          <div class="mda-header">
+            <div class="mda-title">AI-Assisted MD&amp;A Narrative Review</div>
+            <button class="btn btn-outline btn-sm" id="btn-back-3">&#215; Close</button>
+          </div>
+          <p style="font-size:0.78rem;color:var(--text-muted);margin-bottom:0.75rem">
+            Yellow-highlighted paragraphs are shown below. Claude suggests updated versions
+            based on your period change and EDGAR data.
+          </p>
+          <div class="mda-api-row">
+            <div>
+              <label for="step4-api-key">Anthropic API Key</label>
+              <input type="password" id="step4-api-key" placeholder="sk-ant-..." />
+            </div>
+            <button class="btn btn-primary" id="btn-get-suggestions" style="flex-shrink:0;align-self:flex-end">
+              <span class="spinner" id="suggest-spinner" style="display:none"></span>
+              Get AI Suggestions
+            </button>
+          </div>
+          <div class="alert alert-danger hidden" id="suggest-error"></div>
+          <div class="alert alert-info hidden" id="suggest-loading">Sending to Claude API&hellip;</div>
+          <div class="alert alert-warning hidden" id="suggest-no-paras">
+            No highlighted paragraphs found. Run the roll-forward first.
+          </div>
+          <div id="suggestion-list" class="suggestion-list" style="margin-top:0.75rem"></div>
+        </div>
+
+      </div><!-- /canvas-done -->
+
+    </div><!-- /canvas-paper -->
+  </main><!-- /center-canvas -->
+
+  <!-- ══ RIGHT SIDEBAR ══════════════════════════════════════════════ -->
+  <aside id="right-sidebar">
+    <div class="rtab-bar">
+      <button class="rtab active" data-tab="regulatory" onclick="switchRTab('regulatory')">Regulatory</button>
+      <button class="rtab" data-tab="chat" onclick="switchRTab('chat')">AI Chat</button>
+      <button class="rtab" data-tab="edgar" onclick="switchRTab('edgar')">EDGAR Data</button>
+    </div>
+
+    <!-- Tab 1: Regulatory citations -->
+    <div id="rtab-regulatory" class="rtab-pane">
+      <div class="sidebar-section-tabs" id="sidebar-tabs">
+        <button class="sidebar-tab" data-section="balance_sheet">Balance Sheet</button>
+        <button class="sidebar-tab" data-section="income_statement">Income Stmt</button>
+        <button class="sidebar-tab" data-section="cash_flow">Cash Flow</button>
+        <button class="sidebar-tab" data-section="mda">MD&amp;A</button>
+        <button class="sidebar-tab" data-section="eps">EPS</button>
+        <button class="sidebar-tab" data-section="notes">Notes</button>
+      </div>
+      <div class="sidebar-citations" id="sidebar-citations">
+        <div style="color:var(--text-muted);font-size:0.78rem;padding:0.5rem 0">
+          Click a section tab to load regulatory requirements.
+        </div>
+      </div>
+      <button class="sidebar-explain-btn" id="btn-sidebar-explain">Explain with AI &rarr;</button>
+      <div class="sidebar-rationale hidden" id="sidebar-rationale"></div>
+    </div>
+
+    <!-- Tab 2: AI Chat -->
+    <div id="rtab-chat" class="rtab-pane hidden">
+      <div class="chat-pane">
+        <div class="chat-controls-row">
+          <button id="btn-clear-chat">Clear history</button>
+        </div>
+        <div class="chat-messages" id="chat-messages">
+          <div class="chat-empty" id="chat-empty">
+            Ask anything about SEC regulations, US GAAP, or filing requirements.<br><br>
+            <em>e.g. &ldquo;What does Reg S-X require for interim balance sheets?&rdquo;</em>
+          </div>
+        </div>
+        <div class="chat-api-row">
+          <label for="chat-api-key">API Key:</label>
+          <input type="password" id="chat-api-key" placeholder="sk-ant-..." />
+        </div>
+        <div class="chat-input-row">
+          <input type="text" id="chat-input" placeholder="Ask about SEC regulations&hellip;" />
+          <button class="chat-send-btn" id="chat-send">Send</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 3: EDGAR Data -->
+    <div id="rtab-edgar" class="rtab-pane hidden">
+      <div class="btn-row" style="margin-bottom:0.5rem">
+        <button class="btn btn-outline btn-sm" id="btn-edgar-preview" style="flex:1">
+          Fetch Comparable-Period Facts
         </button>
       </div>
-      <div class="alert alert-danger" id="upload-error"></div>
-      <div class="alert alert-success" id="upload-success"></div>
-    </div>
-
-    <!-- Table map preview (shown after upload) -->
-    <div class="card hidden" id="table-map-card">
-      <h2>Detected Tables</h2>
-      <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:0.5rem">
-        Verify these 0-based indices match the expected table layout before proceeding.
-        Key tables: Balance Sheet (3), Income Statement (4), Cash Flow (6).
-      </p>
-      <div class="table-map-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Index</th>
-              <th>Size</th>
-              <th>Header Rows</th>
-            </tr>
-          </thead>
-          <tbody id="table-map-body"></tbody>
-        </table>
-      </div>
-      <div class="btn-row">
-        <button class="btn btn-primary" id="btn-to-step2">Continue to Configure &rarr;</button>
-      </div>
-    </div>
-  </section>
-
-  <!-- ════════════════════════════════════════════════════════════════
-       STEP 2 — Configure
-  ═════════════════════════════════════════════════════════════════ -->
-  <section id="step-2" class="hidden">
-
-    <!-- EDGAR identity + auto-detect ──────────────────────────────── -->
-    <div class="card">
-      <h2>EDGAR Identity</h2>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 1.5rem">
-        <div>
-          <label for="cik-input">SEC CIK</label>
-          <input type="text" id="cik-input" value="0000783412" />
-        </div>
-        <div>
-          <label for="ua-input">User-Agent <span style="color:var(--text-muted);font-weight:400">(required by SEC)</span></label>
-          <input type="text" id="ua-input" placeholder="Your Name your@email.com" />
-        </div>
-      </div>
-
-      <div class="btn-row" style="margin-top:1rem">
-        <button class="btn btn-blue" id="btn-auto-detect">
-          <span class="spinner" id="detect-spinner" style="display:none"></span>
-          Auto-Detect Periods from EDGAR
-        </button>
-      </div>
-      <div class="alert alert-info"    id="detect-loading" style="display:none">Fetching latest 10-Q from EDGAR&hellip;</div>
-      <div class="alert alert-danger"  id="detect-error"></div>
-
-      <!-- Detected filing banner (shown after auto-detect) -->
-      <div id="detect-result" style="display:none;margin-top:0.75rem">
-        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:0.75rem 1rem;font-size:0.83rem">
-          <span style="color:var(--success);font-weight:600">&#10003; Detected:</span>
-          <span id="detect-summary" style="margin-left:0.5rem;color:var(--text-muted)"></span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Period configuration ──────────────────────────────────────── -->
-    <div class="card">
-      <h2>Period Configuration
-        <span style="font-size:0.75rem;font-weight:400;color:var(--text-muted);margin-left:0.75rem">
-          Auto-filled from EDGAR — edit any field if needed
-        </span>
-      </h2>
-
-      <!-- Source period -->
-      <div style="border:1px solid var(--border);border-radius:6px;padding:1rem;margin-bottom:1rem">
-        <div style="font-size:0.78rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.75rem">
-          Source Document (filed 10-Q)
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 1.5rem">
-          <div>
-            <label>Period end label <span style="color:var(--text-muted)">(e.g. December 31, 2025)</span></label>
-            <input type="text" id="src-label" placeholder="December 31, 2025" />
-          </div>
-          <div>
-            <label>Comparable period label <span style="color:var(--text-muted)">(prior year same quarter)</span></label>
-            <input type="text" id="src-comparable" placeholder="December 31, 2024" />
-          </div>
-          <div>
-            <label>Quarter name <span style="color:var(--text-muted)">(first / second / third)</span></label>
-            <input type="text" id="src-quarter" placeholder="first" />
-          </div>
-          <div>
-            <label>Filing date <span style="color:var(--text-muted)">(as it appears in the document)</span></label>
-            <input type="text" id="src-filing-date" placeholder="February 17, 2026" />
-          </div>
-          <div>
-            <label>YTD months <span style="color:var(--text-muted)">(3, 6, or 9)</span></label>
-            <input type="text" id="src-ytd-months" placeholder="3" style="max-width:120px" />
-          </div>
-        </div>
-      </div>
-
-      <!-- Target period -->
-      <div style="border:1px solid var(--border);border-radius:6px;padding:1rem;margin-bottom:1rem">
-        <div style="font-size:0.78rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.75rem">
-          Target Document (next quarter draft)
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 1.5rem">
-          <div>
-            <label>Period end label</label>
-            <input type="text" id="tgt-label" placeholder="March 31, 2026" />
-          </div>
-          <div>
-            <label>Comparable period label</label>
-            <input type="text" id="tgt-comparable" placeholder="March 31, 2025" />
-          </div>
-          <div>
-            <label>Quarter name</label>
-            <input type="text" id="tgt-quarter" placeholder="second" />
-          </div>
-          <div>
-            <label>Filing date <span style="color:var(--text-muted)">(leave as placeholder)</span></label>
-            <input type="text" id="tgt-filing-date" placeholder="[FILING DATE]" />
-          </div>
-          <div>
-            <label>YTD months</label>
-            <input type="text" id="tgt-ytd-months" placeholder="6" style="max-width:120px" />
-          </div>
-        </div>
-      </div>
-
-      <!-- Shared -->
-      <label>Prior year-end label <span style="color:var(--text-muted)">(Balance Sheet comparison column — stays the same each quarter)</span></label>
-      <input type="text" id="prior-ye" placeholder="September 30, 2025" />
-
-      <div class="alert alert-warning" id="period-warning" style="display:none;margin-top:0.75rem"></div>
-    </div>
-
-    <!-- EDGAR data preview ─────────────────────────────────────────── -->
-    <div class="card">
-      <h2>EDGAR Data Preview <span style="font-size:0.78rem;font-weight:400;color:var(--text-muted)">— verify comparable-period facts before generating</span></h2>
-      <div class="btn-row">
-        <button class="btn btn-outline" id="btn-edgar-preview">Fetch Comparable-Period Facts</button>
-      </div>
-      <div class="alert alert-info"    id="edgar-loading"  style="display:none">Fetching EDGAR data&hellip;</div>
-      <div class="alert alert-danger"  id="edgar-error"></div>
-      <div class="alert alert-success" id="edgar-success"  style="display:none"></div>
-      <div id="edgar-preview-section" style="display:none">
+      <div class="alert alert-info hidden" id="edgar-loading">Fetching EDGAR data&hellip;</div>
+      <div class="alert alert-danger hidden" id="edgar-error"></div>
+      <div class="alert alert-success hidden" id="edgar-success"></div>
+      <div id="edgar-preview-section" class="hidden">
         <div class="edgar-grid" id="edgar-facts-grid"></div>
       </div>
     </div>
 
-    <!-- Options ────────────────────────────────────────────────────── -->
-    <div class="card">
-      <h2>Options</h2>
-      <div class="toggle-row">
-        <label class="toggle">
-          <input type="checkbox" id="ytd-toggle" />
-          <span class="slider"></span>
-        </label>
-        <div>
-          <div class="toggle-label">Add YTD columns to Income Statement</div>
-          <div class="toggle-hint">
-            Expands the table from 3 to 5 columns using lxml XML manipulation.
-            Leave OFF for the first run and verify the basic pass before enabling.
-          </div>
-        </div>
-      </div>
-    </div>
+  </aside><!-- /right-sidebar -->
 
-    <div class="btn-row">
-      <button class="btn btn-outline" id="btn-back-1">&larr; Back</button>
-      <button class="btn btn-primary" id="btn-to-step3">Continue to Generate &rarr;</button>
-    </div>
-  </section>
+</div><!-- /workspace -->
 
-  <!-- ════════════════════════════════════════════════════════════════
-       STEP 3 — Generate
-  ═════════════════════════════════════════════════════════════════ -->
-  <section id="step-3" class="hidden">
-    <div class="card">
-      <h2>Generate Roll-Forward Document</h2>
-      <p style="font-size:0.85rem;color:var(--text-muted)">
-        The source file will not be modified. A new draft for
-        <strong id="gen-tgt-label">the target period</strong> will be generated and downloaded.
-      </p>
-      <div class="btn-row">
-        <button class="btn btn-outline" id="btn-back-2">&larr; Back</button>
-        <button class="btn btn-primary" id="btn-generate">
-          <span class="spinner" id="gen-spinner" style="display:none"></span>
-          Roll Forward
-        </button>
-      </div>
-      <div class="alert alert-info"    id="gen-loading"  style="display:none">Processing&hellip; this may take 15-30 seconds while fetching EDGAR data.</div>
-      <div class="alert alert-danger"  id="gen-error"></div>
-    </div>
-
-    <!-- Results (hidden until generation completes) -->
-    <div class="card hidden" id="results-card">
-      <h2>Results</h2>
-      <div class="stat-grid" id="stat-grid"></div>
-
-      <!-- Verification badges -->
-      <h2 style="margin-top:1.25rem">Automated Verification</h2>
-      <div class="v-row" id="v-row"></div>
-      <div class="missing-list" id="missing-list"></div>
-      <div class="warn-list"    id="warn-list"></div>
-
-      <!-- Manual checklist -->
-      <h2 style="margin-top:1.25rem">Manual Review Checklist</h2>
-      <div class="hl-note">
-        &#9888; MD&amp;A paragraphs containing dollar amounts have been highlighted yellow.
-        Update all narrative text manually after downloading.
-      </div>
-      <ul class="checklist" id="manual-checklist">
-        <li><input type="checkbox" /><span>Cover page shows <strong id="chk-tgt-label">the target period</strong></span></li>
-        <li><input type="checkbox" /><span>Balance Sheet <strong id="chk-prior-ye">prior year-end</strong> column is intact and unchanged</span></li>
-        <li><input type="checkbox" /><span>Income statement <strong id="chk-tgt-comparable">comparable period</strong> column has numbers</span></li>
-        <li><input type="checkbox" /><span>Income statement <strong id="chk-tgt-current">current period</strong> column is blank</span></li>
-        <li><input type="checkbox" /><span>No &ldquo;<span id="chk-src-label">source period date</span>&rdquo; remains anywhere in the document</span></li>
-        <li><input type="checkbox" /><span>Yellow-highlighted MD&amp;A paragraphs have been manually updated</span></li>
-        <li><input type="checkbox" /><span><code>[FILING DATE]</code> placeholder has been filled in</span></li>
-      </ul>
-
-      <div class="btn-row" style="margin-top:1.25rem">
-        <button class="btn btn-primary" id="btn-download-again">Download Again</button>
-        <button class="btn btn-outline" id="btn-restart">Start Over</button>
-      </div>
-    </div>
-  </section>
-
-</div><!-- /.container -->
+<!-- Hidden step-nav shims for JS compatibility -->
+<div id="step-nav-1" style="display:none"></div>
+<div id="step-nav-2" style="display:none"></div>
+<div id="step-nav-3" style="display:none"></div>
+<div id="step-nav-4" style="display:none"></div>
 
 <script>
 // ─────────────────────────────────────────────────────────────────────────
 // State
 // ─────────────────────────────────────────────────────────────────────────
-let state = {
-  fileId: null,
-  filename: null,
-  tableMap: null,
-  lastOutputBlob: null,
+const state = {
+  ticker:        "",
+  cik:           "",
+  companyName:   "",
+  formType:      "10-Q",
+  canvasState:   "empty",
+  mode:          "docx",
+  htmlId:        null,      // html_id of rolled-forward session
+  filingInfo:    null,      // filing_info from /api/detect-period
+  // New: filing viewer
+  currentFiling:  null,    // {form, period_end, accession_number, primary_document, filing_date}
+  viewerHtmlId:   null,    // html_id of the raw (unrolled) filing in viewer
+  _filingsList:   [],      // list from /api/list-filings
+  // Render mode for canvas-uploaded: 'docx' = docx-preview, 'html' = rolled EDGAR iframe
+  renderMode:        "docx",
+  rolledHtmlId:      null,
+  // Existing fields
+  fileId:            null,
+  filename:          null,
+  tableMap:          null,
+  tableDetection:    {},
+  lastOutputBlob:    null,
   lastOutputFilename: null,
+  lastJobId:         null,
+  lastStats:         null,
+  edgarFacts:        {},
+  highlightedParas:  [],
+  chatHistory:       [],
+  currentSidebarSection: null,
 };
 
 // ─────────────────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────
-function showStep(n) {
-  [1,2,3].forEach(i => {
-    document.getElementById(`step-${i}`).classList.toggle("hidden", i !== n);
-    const nav = document.getElementById(`step-nav-${i}`);
-    nav.classList.remove("active","done");
-    if (i === n) nav.classList.add("active");
-    else if (i < n) nav.classList.add("done");
-  });
-  window.scrollTo({top: 0, behavior: "smooth"});
-}
-
-function showAlert(id, msg) {
-  const el = document.getElementById(id);
-  el.textContent = msg;
-  el.style.display = "block";
-  el.classList.add("show");
-}
-function hideAlert(id) {
-  const el = document.getElementById(id);
-  el.classList.remove("show");
-  el.style.display = "none";
-}
-function setVal(id, val) { document.getElementById(id).value = val ?? ""; }
-function getVal(id)       { return document.getElementById(id).value.trim(); }
-
-function triggerDownload(blob, filename) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url; a.download = filename;
-  document.body.appendChild(a); a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 10000);
-}
 function escHtml(s) {
   return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
 }
@@ -583,136 +1330,783 @@ function formatNum(v) {
   if (typeof v === "number") return Math.abs(v) < 1000 ? v.toFixed(2) : v.toLocaleString();
   return escHtml(String(v));
 }
-
-// Read period config from form fields
-function readSourceConfig() {
-  return {
-    period_label:        getVal("src-label"),
-    period_end:          labelToIso(getVal("src-label")),
-    comparable_label:    getVal("src-comparable"),
-    comparable_end:      labelToIso(getVal("src-comparable")),
-    quarter_name:        getVal("src-quarter"),
-    filing_date:         getVal("src-filing-date"),
-    ytd_months:          parseInt(getVal("src-ytd-months"), 10) || 3,
-    prior_year_end_label: getVal("prior-ye"),
-  };
+function triggerDownload(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
 }
-function readTargetConfig() {
-  return {
-    period_label:        getVal("tgt-label"),
-    period_end:          labelToIso(getVal("tgt-label")),
-    comparable_label:    getVal("tgt-comparable"),
-    comparable_end:      labelToIso(getVal("tgt-comparable")),
-    quarter_name:        getVal("tgt-quarter"),
-    filing_date:         getVal("tgt-filing-date") || "[FILING DATE]",
-    ytd_months:          parseInt(getVal("tgt-ytd-months"), 10) || 6,
-    prior_year_end_label: getVal("prior-ye"),
-  };
+function getVal(id)      { return (document.getElementById(id)?.value || "").trim(); }
+function setVal(id, val) { const el = document.getElementById(id); if (el) el.value = val ?? ""; }
+function showEl(id)  { const el = document.getElementById(id); if (el) el.classList.remove("hidden"); }
+function hideEl(id)  { const el = document.getElementById(id); if (el) el.classList.add("hidden"); }
+function setTxt(id, txt) { const el = document.getElementById(id); if (el) el.textContent = txt; }
+function showAlert(id, msg) {
+  const el = document.getElementById(id);
+  if (!el) return; el.textContent = msg; el.classList.remove("hidden");
 }
+function hideAlert(id) { hideEl(id); }
 
-// Convert "March 31, 2026" → "2026-03-31" (best-effort, server re-derives anyway)
 const _MONTHS = {January:1,February:2,March:3,April:4,May:5,June:6,
                  July:7,August:8,September:9,October:10,November:11,December:12};
 function labelToIso(label) {
   const m = label.match(/^(\w+)\s+(\d+),\s*(\d{4})$/);
   if (!m) return "";
-  const mo = String(_MONTHS[m[1]] || 1).padStart(2,"0");
-  const dy = m[2].padStart(2,"0");
-  return `${m[3]}-${mo}-${dy}`;
+  return `${m[3]}-${String(_MONTHS[m[1]]||1).padStart(2,"0")}-${m[2].padStart(2,"0")}`;
+}
+function readSourceConfig() {
+  return {
+    period_label:         getVal("src-label"),
+    period_end:           labelToIso(getVal("src-label")),
+    comparable_label:     getVal("src-comparable"),
+    comparable_end:       labelToIso(getVal("src-comparable")),
+    quarter_name:         getVal("src-quarter"),
+    quarter_label:        `${getVal("src-quarter")} quarter ${(getVal("src-label")||"").slice(-4)}`,
+    filing_date:          getVal("src-filing-date"),
+    ytd_months:           parseInt(getVal("src-ytd-months"), 10) || 3,
+    prior_year_end_label: getVal("prior-ye"),
+  };
+}
+function readTargetConfig() {
+  return {
+    period_label:         getVal("tgt-label"),
+    period_end:           labelToIso(getVal("tgt-label")),
+    comparable_label:     getVal("tgt-comparable"),
+    comparable_end:       labelToIso(getVal("tgt-comparable")),
+    quarter_name:         getVal("tgt-quarter"),
+    quarter_label:        `${getVal("tgt-quarter")} quarter ${(getVal("tgt-label")||"").slice(-4)}`,
+    filing_date:          getVal("tgt-filing-date") || "[FILING DATE]",
+    ytd_months:           parseInt(getVal("tgt-ytd-months"), 10) || 6,
+    prior_year_end_label: getVal("prior-ye"),
+  };
+}
+function getApiKey() {
+  return (getVal("step4-api-key") || getVal("anthropic-key-input") || getVal("chat-api-key"));
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// Step 1 — Upload
+// Restore API key from localStorage
 // ─────────────────────────────────────────────────────────────────────────
-document.getElementById("btn-upload").addEventListener("click", async () => {
-  const fileInput = document.getElementById("file-input");
-  if (!fileInput.files.length) { showAlert("upload-error", "Please select a .docx file first."); return; }
-  const file = fileInput.files[0];
+const _storedKey = localStorage.getItem("anthropic_api_key") || "";
+if (_storedKey) {
+  document.getElementById("anthropic-key-input").value = _storedKey;
+  document.getElementById("step4-api-key").value = _storedKey;
+  document.getElementById("chat-api-key").value = _storedKey;
+}
+["anthropic-key-input","step4-api-key","chat-api-key"].forEach(id => {
+  document.getElementById(id)?.addEventListener("change", () => {
+    const val = document.getElementById(id).value;
+    localStorage.setItem("anthropic_api_key", val);
+    ["anthropic-key-input","step4-api-key","chat-api-key"].forEach(oid => {
+      if (oid !== id) setVal(oid, val);
+    });
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// Canvas state machine
+// ─────────────────────────────────────────────────────────────────────────
+const ALL_CANVAS_STATES =
+  ["empty","loading","viewer","uploaded","generating","done"];
+function setCanvasState(name) {
+  state.canvasState = name;
+  ALL_CANVAS_STATES.forEach(s => {
+    const el = document.getElementById(`canvas-${s}`);
+    if (el) el.classList.toggle("hidden", s !== name);
+  });
+}
+
+// Shim for any remaining showStep() calls
+function showStep(n) {
+  if (n === 1) setCanvasState(state.fileId ? "uploaded" : "empty");
+  else if (n === 2) setCanvasState("uploaded");
+  else if (n === 3) setCanvasState("generating");
+  else if (n === 4) {
+    setCanvasState("done");
+    showEl("mda-drawer");
+    document.getElementById("mda-drawer").scrollIntoView({ behavior: "smooth" });
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Sidebar collapse / hamburger
+// ─────────────────────────────────────────────────────────────────────────
+document.getElementById("btn-left-toggle").addEventListener("click", () => {
+  document.getElementById("left-sidebar").classList.toggle("collapsed");
+});
+document.getElementById("btn-right-toggle").addEventListener("click", () => {
+  document.getElementById("right-sidebar").classList.toggle("collapsed");
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// Left sidebar accordion
+// ─────────────────────────────────────────────────────────────────────────
+function toggleAcc(name) {
+  const body = document.querySelector(`#acc-${name} .acc-body`);
+  const header = document.querySelector(`#acc-${name} .acc-header`);
+  if (!body || !header) return;
+  const isOpen = body.classList.contains("open");
+  body.classList.toggle("open", !isOpen);
+  header.classList.toggle("open", !isOpen);
+}
+
+function toggleSubAcc(name) {
+  const body   = document.getElementById(`sub-body-${name}`);
+  const header = document.querySelector(`#sub-acc-${name} .sub-acc-header`);
+  if (!body || !header) return;
+  const isOpen = body.classList.contains("open");
+  body.classList.toggle("open", !isOpen);
+  header.classList.toggle("open", !isOpen);
+}
+
+function openSubAcc(name) {
+  const body   = document.getElementById(`sub-body-${name}`);
+  const header = document.querySelector(`#sub-acc-${name} .sub-acc-header`);
+  if (!body || !header) return;
+  body.classList.add("open");
+  header.classList.add("open");
+  // Also open parent Section A
+  const parentBody   = document.querySelector("#acc-document .acc-body");
+  const parentHeader = document.querySelector("#acc-document .acc-header");
+  if (parentBody)  parentBody.classList.add("open");
+  if (parentHeader) parentHeader.classList.add("open");
+  // Scroll sidebar to roll-forward section
+  const el = document.getElementById(`sub-acc-${name}`);
+  if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+// alias used in plan snippets
+function getTxt(id) { return getVal(id); }
+
+// ─────────────────────────────────────────────────────────────────────────
+// Right sidebar tab switching
+// ─────────────────────────────────────────────────────────────────────────
+function switchRTab(tab) {
+  document.querySelectorAll(".rtab").forEach(t =>
+    t.classList.toggle("active", t.dataset.tab === tab));
+  ["regulatory","chat","edgar"].forEach(t =>
+    document.getElementById(`rtab-${t}`).classList.toggle("hidden", t !== tab));
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Form-type sync (topbar ↔ sidebar)
+// ─────────────────────────────────────────────────────────────────────────
+document.getElementById("topbar-form-type").addEventListener("change", function() {
+  state.formType = this.value;
+  setVal("form-type-select", this.value);
+});
+document.getElementById("form-type-select").addEventListener("change", function() {
+  state.formType = this.value;
+  setVal("topbar-form-type", this.value);
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// Ticker resolution
+// ─────────────────────────────────────────────────────────────────────────
+let _tickerDebounce = null;
+
+async function resolveTicker(ticker) {
+  ticker = ticker.trim().toUpperCase();
+  if (!ticker) return;
+  try {
+    const resp = await fetch(`/api/lookup-ticker?ticker=${encodeURIComponent(ticker)}`);
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.error || "Not found");
+    // Success
+    state.ticker      = data.ticker;
+    state.cik         = data.cik;
+    state.companyName = data.name;
+    // Update topbar pill
+    setTxt("topbar-ticker-symbol", data.ticker);
+    setTxt("topbar-company-name",  data.name);
+    setTxt("topbar-cik",           data.cik);
+    hideEl("topbar-ticker");
+    showEl("topbar-ticker-pill");
+    hideEl("topbar-ticker-error");
+    document.getElementById("topbar-ticker").classList.remove("error");
+    // Sync left sidebar
+    setVal("cik-input", data.cik);
+    setVal("sidebar-ticker", data.ticker);
+    setTxt("sidebar-company-name", data.name);
+    showEl("sidebar-company-display");
+    hideEl("ticker-error");
+    // Load filings list → auto-load most recent
+    loadFilingsList(data.cik);
+    // Also auto-detect periods if UA is set (populates roll-forward fields)
+    const ua = getVal("ua-input");
+    if (ua) autoDetectPeriods();
+  } catch (err) {
+    document.getElementById("topbar-ticker").classList.add("error");
+    showEl("topbar-ticker-error");
+    showAlert("ticker-error", `Ticker not found. Enter CIK manually. (${err.message})`);
+  }
+}
+
+document.getElementById("topbar-ticker").addEventListener("input", function() {
+  clearTimeout(_tickerDebounce);
+  const val = this.value.trim();
+  if (!val) return;
+  _tickerDebounce = setTimeout(() => resolveTicker(val), 400);
+});
+document.getElementById("topbar-ticker").addEventListener("keydown", function(e) {
+  if (e.key === "Enter") { clearTimeout(_tickerDebounce); resolveTicker(this.value); }
+});
+document.getElementById("topbar-ticker").addEventListener("blur", function() {
+  const val = this.value.trim();
+  if (val && !state.cik) { clearTimeout(_tickerDebounce); resolveTicker(val); }
+});
+document.getElementById("btn-ticker-clear").addEventListener("click", () => {
+  state.ticker = ""; state.cik = ""; state.companyName = "";
+  state.currentFiling = null; state.viewerHtmlId = null; state._filingsList = [];
+  hideEl("topbar-ticker-pill");
+  showEl("topbar-ticker");
+  hideEl("topbar-ticker-error");
+  document.getElementById("topbar-ticker").value = "";
+  document.getElementById("topbar-ticker").classList.remove("error");
+  setVal("sidebar-ticker", "");
+  hideEl("sidebar-company-display");
+  hideEl("ticker-error");
+  // Reset filing dropdown
+  document.getElementById("filing-group").style.display = "none";
+  const sel = document.getElementById("filing-select");
+  sel.innerHTML = '<option value="">&#8212; Select filing period &#8212;</option>';
+  setCanvasState("empty");
+});
+
+// Sidebar ticker input → sync with topbar
+document.getElementById("sidebar-ticker").addEventListener("input", function() {
+  setVal("topbar-ticker", this.value);
+  clearTimeout(_tickerDebounce);
+  const val = this.value.trim();
+  if (val.length >= 1) _tickerDebounce = setTimeout(() => resolveTicker(val), 400);
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// File upload
+// ─────────────────────────────────────────────────────────────────────────
+async function uploadFile(file) {
+  if (!file || !file.name.endsWith(".docx")) {
+    showAlert("upload-error", "Only .docx files are accepted.");
+    return;
+  }
   hideAlert("upload-error"); hideAlert("upload-success");
   document.getElementById("upload-spinner").style.display = "inline-block";
   document.getElementById("btn-upload").disabled = true;
 
   try {
-    const fd = new FormData();
-    fd.append("file", file);
+    const fd = new FormData(); fd.append("file", file);
     const resp = await fetch("/upload", { method:"POST", body:fd });
     const data = await resp.json();
     if (!resp.ok) throw new Error(data.error || resp.statusText);
-
-    state.fileId   = data.file_id;
-    state.filename = data.filename;
-    state.tableMap = data.table_map;
-
-    showAlert("upload-success", `Uploaded: ${data.filename} — ${data.table_map.length} tables detected.`);
-    renderTableMap(data.table_map);
-    document.getElementById("table-map-card").classList.remove("hidden");
+    state.fileId      = data.file_id;
+    state.filename    = data.filename;
+    state.tableMap    = data.table_map;
+    state.renderMode  = "docx";
+    state.rolledHtmlId = null;
+    // Show docx upload section again (may have been hidden in HTML mode)
+    const docxSec = document.getElementById("rf-docx-section");
+    if (docxSec) docxSec.style.display = "";
+    // Update canvas
+    setTxt("canvas-filename", data.filename);
+    setTxt("canvas-doc-meta", `${data.table_map.length} tables detected`);
+    hideEl("btn-save-viewer-edits");
+    hideEl("btn-download-rolled-html");
+    setCanvasState("uploaded");
+    loadDocxPreview(data.file_id);
+    showAlert("upload-success", `Uploaded: ${data.filename}`);
   } catch(err) {
     showAlert("upload-error", `Upload failed: ${err.message}`);
   } finally {
     document.getElementById("upload-spinner").style.display = "none";
     document.getElementById("btn-upload").disabled = false;
   }
+}
+
+document.getElementById("btn-upload").addEventListener("click", async () => {
+  const fileInput = document.getElementById("file-input");
+  if (!fileInput.files.length) { showAlert("upload-error", "Please select a .docx file first."); return; }
+  await uploadFile(fileInput.files[0]);
 });
 
-function renderTableMap(tableMap) {
+// Drag-and-drop on canvas empty state
+const dropZone = document.getElementById("drop-zone");
+dropZone.addEventListener("click", () => document.getElementById("file-input").click());
+dropZone.addEventListener("dragover", e => { e.preventDefault(); dropZone.classList.add("drag-over"); });
+dropZone.addEventListener("dragleave", () => dropZone.classList.remove("drag-over"));
+dropZone.addEventListener("drop", e => {
+  e.preventDefault(); dropZone.classList.remove("drag-over");
+  const file = e.dataTransfer.files[0];
+  if (file) {
+    document.getElementById("file-input").value = "";
+    uploadFile(file);
+  }
+});
+
+document.getElementById("canvas-change-file").addEventListener("click", () => {
+  state.fileId = null; state.filename = null; state.tableMap = null;
+  state.renderMode = "docx"; state.rolledHtmlId = null;
+  document.getElementById("file-input").value = "";
+  const _rarea = document.getElementById("docx-render-area");
+  _rarea.removeAttribute("contenteditable");
+  _rarea.innerHTML = '<div class="canvas-center-placeholder"><div class="spinner-lg"></div><p>Rendering document&hellip;</p></div>';
+  _editModeActive = false;
+  document.getElementById("btn-toggle-edit").textContent = "\u270E Edit";
+  document.getElementById("btn-toggle-edit").classList.replace("btn-primary","btn-outline");
+  hideEl("edit-mode-badge");
+  hideEl("btn-save-viewer-edits");
+  hideEl("btn-download-rolled-html");
+  document.getElementById("edit-toolbar").classList.remove("visible");
+  setCanvasState(state.viewerHtmlId ? "viewer" : "empty");
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// Docx preview (docx-preview.js) + edit mode (mammoth HTML)
+// ─────────────────────────────────────────────────────────────────────────
+let _editModeActive = false;
+
+async function loadDocxPreview(fileId) {
+  state.renderMode = "docx";
+  const area = document.getElementById("docx-render-area");
+  area.removeAttribute("contenteditable");
+  area.innerHTML = '<div class="canvas-center-placeholder"><div class="spinner-lg"></div><p>Rendering document&hellip;</p></div>';
+  _editModeActive = false;
+  document.getElementById("btn-toggle-edit").textContent = "\u270E Edit";
+  document.getElementById("btn-toggle-edit").classList.replace("btn-primary","btn-outline");
+  document.getElementById("edit-toolbar").classList.remove("visible");
+  hideEl("edit-mode-badge");
+
+  // Fallback to mammoth if docx-preview library not available
+  if (typeof docx === "undefined" || typeof docx.renderAsync !== "function") {
+    try {
+      const resp = await fetch(`/api/preview-upload-html/${fileId}`);
+      const html = await resp.text();
+      area.style.background = "#fff";
+      area.style.padding = "2rem 3rem";
+      const m = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+      area.innerHTML = m ? m[1] : html;
+    } catch(err) {
+      area.innerHTML = `<div style="color:var(--danger);padding:1.5rem">Preview failed: ${err.message}</div>`;
+    }
+    return;
+  }
+
+  try {
+    const bytes = await fetch(`/api/raw-upload/${fileId}`).then(r => r.arrayBuffer());
+    area.innerHTML = "";
+    await docx.renderAsync(bytes, area, null, {
+      className:     "docx",
+      inWrapper:     true,
+      ignoreWidth:   false,
+      ignoreHeight:  false,
+      ignoreFonts:   false,
+      breakPages:    true,
+      useBase64URL:  true,
+      renderChanges: false,
+    });
+  } catch(err) {
+    area.innerHTML = `<div style="color:var(--danger);padding:1.5rem">Preview failed: ${err.message}</div>`;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Edit toolbar — context-aware helpers (docx-preview div OR rolled HTML iframe)
+// ─────────────────────────────────────────────────────────────────────────
+
+// Returns the Document to use for execCommand / queryCommandState
+function _editDoc() {
+  if (state.renderMode === "html") {
+    const f = document.getElementById("doc-iframe");
+    if (f) return f.contentDocument || f.contentWindow?.document || document;
+  }
+  return document;
+}
+
+// Returns the element to make contentEditable
+function _editEl() {
+  if (state.renderMode === "html") {
+    const doc = _editDoc();
+    return (doc !== document) ? doc.body : null;
+  }
+  return document.getElementById("docx-render-area");
+}
+
+function execCmd(cmd, val) {
+  if (!_editModeActive) return;
+  _editEl()?.focus();
+  _editDoc().execCommand(cmd, false, val !== undefined ? val : null);
+  updateToolbarState();
+}
+
+// Font size via execCommand workaround: set size=7 marker then patch with pt value
+function setEditorFontSize(size) {
+  if (!_editModeActive) return;
+  const doc  = _editDoc();
+  const area = _editEl();
+  area?.focus();
+  doc.execCommand("fontSize", false, "7");
+  // patch <font size="7"> elements → inline style
+  const root = (state.renderMode === "html")
+    ? doc
+    : document.getElementById("docx-render-area");
+  root.querySelectorAll("font[size='7']").forEach(el => {
+    el.removeAttribute("size");
+    el.style.fontSize = size + "pt";
+  });
+  updateToolbarState();
+}
+
+function updateToolbarState() {
+  const doc = _editDoc();
+  const cmdBtns = {
+    bold:                "etb-bold",
+    italic:              "etb-italic",
+    underline:           "etb-underline",
+    strikeThrough:       "etb-strikethrough",
+    justifyLeft:         "etb-align-left",
+    justifyCenter:       "etb-align-center",
+    justifyRight:        "etb-align-right",
+    justifyFull:         "etb-align-justify",
+    insertUnorderedList: "etb-ul",
+    insertOrderedList:   "etb-ol",
+  };
+  for (const [cmd, id] of Object.entries(cmdBtns)) {
+    const btn = document.getElementById(id);
+    if (btn) {
+      try { btn.classList.toggle("etb-active", doc.queryCommandState(cmd)); }
+      catch(e) {}
+    }
+  }
+}
+
+// selectionchange on main document (for docx-preview mode)
+document.addEventListener("selectionchange", () => {
+  if (_editModeActive && state.renderMode !== "html") updateToolbarState();
+});
+
+// Called when iframe edit mode activates to wire up its selectionchange
+function _attachIframeSelChange() {
+  const f = document.getElementById("doc-iframe");
+  if (!f) return;
+  const iDoc = f.contentDocument || f.contentWindow?.document;
+  if (iDoc) {
+    iDoc.removeEventListener("selectionchange", _onIframeSelChange); // avoid double
+    iDoc.addEventListener("selectionchange", _onIframeSelChange);
+  }
+}
+function _onIframeSelChange() {
+  if (_editModeActive && state.renderMode === "html") updateToolbarState();
+}
+
+document.getElementById("btn-toggle-edit").addEventListener("click", () => {
+  _editModeActive = !_editModeActive;
+  const btn     = document.getElementById("btn-toggle-edit");
+  const toolbar = document.getElementById("edit-toolbar");
+
+  if (_editModeActive) {
+    const el  = _editEl();
+    const doc = _editDoc();
+    if (el) {
+      el.contentEditable = "true";
+      el.focus();
+    }
+    try { doc.execCommand("styleWithCSS", false, true); } catch(e) {}
+    try { doc.execCommand("defaultParagraphSeparator", false, "p"); } catch(e) {}
+    btn.textContent = "\uD83D\uDD12 Lock";
+    btn.classList.replace("btn-outline", "btn-primary");
+    showEl("edit-mode-badge");
+    toolbar.classList.add("visible");
+    if (state.renderMode === "html") {
+      _attachIframeSelChange();
+      showEl("btn-save-viewer-edits");
+    }
+    updateToolbarState();
+  } else {
+    const el = _editEl();
+    if (el) { el.contentEditable = "false"; }
+    btn.textContent = "\u270E Edit";
+    btn.classList.replace("btn-primary", "btn-outline");
+    hideEl("edit-mode-badge");
+    toolbar.classList.remove("visible");
+    if (state.renderMode === "html") hideEl("btn-save-viewer-edits");
+  }
+});
+
+// Save edits back to server (HTML mode only)
+document.getElementById("btn-save-viewer-edits").addEventListener("click", async () => {
+  if (!state.rolledHtmlId) return;
+  const f = document.getElementById("doc-iframe");
+  if (!f) return;
+  const iDoc = f.contentDocument || f.contentWindow?.document;
+  if (!iDoc) return;
+  const html = iDoc.documentElement.outerHTML;
+  const saveBtn = document.getElementById("btn-save-viewer-edits");
+  saveBtn.disabled = true; saveBtn.textContent = "Saving\u2026";
+  try {
+    const resp = await fetch(`/api/save-html-edits/${state.rolledHtmlId}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ html }),
+    });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.error || "Save failed");
+    saveBtn.textContent = "\u2713 Saved";
+    setTimeout(() => { saveBtn.textContent = "\uD83D\uDCBE Save"; saveBtn.disabled = false; }, 2000);
+  } catch(err) {
+    saveBtn.textContent = "Error";
+    setTimeout(() => { saveBtn.textContent = "\uD83D\uDCBE Save"; saveBtn.disabled = false; }, 2000);
+  }
+});
+
+// Download rolled HTML
+document.getElementById("btn-download-rolled-html").addEventListener("click", () => {
+  if (state.rolledHtmlId)
+    window.open(`/api/download-filing-html/${state.rolledHtmlId}`, "_blank");
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// Table map rendering (preserved logic)
+// ─────────────────────────────────────────────────────────────────────────
+const TABLE_TYPE_LABELS = {
+  balance_sheet: "Balance Sheet", income_statement: "Income Stmt",
+  cash_flow: "Cash Flow", eps: "EPS", stockholders_equity: "Equity",
+};
+function renderTableMap(tableMap, detection) {
   const tbody = document.getElementById("table-map-body");
   tbody.innerHTML = "";
+  const indexToType = {};
+  for (const [type, idx] of Object.entries(detection)) {
+    if (type !== "detected_at") indexToType[idx] = type;
+  }
   tableMap.forEach(t => {
     const tr = document.createElement("tr");
+    const detectedType = indexToType[t.index];
+    const typeBadge = detectedType
+      ? `<span class="type-badge ${detectedType}" data-section="${detectedType}" title="View regulatory requirements">${TABLE_TYPE_LABELS[detectedType] || detectedType}</span>`
+      : `<span style="color:var(--text-muted);font-size:0.72rem">—</span>`;
     const headersHtml = t.headers.map((row, ri) =>
-      `<div style="color:${ri===0?'var(--text)':'var(--text-muted)'}">Row ${ri}: ${row.map(h=>`<em>${escHtml(h||"—")}</em>`).join(" | ")}</div>`
+      `<div style="color:${ri===0?"var(--text)":"var(--text-muted)"}">Row ${ri}: ${row.map(h=>`<em>${escHtml(h||"—")}</em>`).join(" | ")}</div>`
     ).join("");
-    tr.innerHTML = `<td><span class="idx-badge">${t.index}</span></td><td>${t.rows}r &times; ${t.cols}c</td><td>${headersHtml}</td>`;
+    tr.innerHTML = `<td><span class="idx-badge">${t.index}</span></td><td>${typeBadge}</td><td>${t.rows}r&times;${t.cols}c</td><td>${headersHtml}</td>`;
     tbody.appendChild(tr);
+  });
+  tbody.querySelectorAll(".type-badge[data-section]").forEach(el => {
+    el.addEventListener("click", () => {
+      openSidebarSection(el.dataset.section);
+      // Also open right sidebar if collapsed
+      document.getElementById("right-sidebar").classList.remove("collapsed");
+    });
   });
 }
 
-document.getElementById("btn-to-step2").addEventListener("click", () => showStep(2));
-
 // ─────────────────────────────────────────────────────────────────────────
-// Step 2 — Auto-detect periods from EDGAR
+// Filing list + viewer
 // ─────────────────────────────────────────────────────────────────────────
-document.getElementById("btn-auto-detect").addEventListener("click", async () => {
-  const cik = getVal("cik-input");
-  const ua  = getVal("ua-input");
-  if (!ua) { showAlert("detect-error", "Enter your User-Agent (name + email) first — required by SEC."); return; }
+async function loadFilingsList(cik) {
+  document.getElementById("filing-group").style.display = "flex";
+  const spinner = document.getElementById("filing-load-spinner");
+  spinner.classList.remove("hidden");
+  const ua = getVal("ua-input") || "SEC Filing Platform user@example.com";
+  try {
+    const resp = await fetch(`/api/list-filings?cik=${encodeURIComponent(cik)}&user_agent=${encodeURIComponent(ua)}`);
+    const data = await resp.json();
+    const sel  = document.getElementById("filing-select");
+    sel.innerHTML = '<option value="">&#8212; Select filing period &#8212;</option>';
+    (data.filings || []).forEach((f, idx) => {
+      const opt = document.createElement("option");
+      opt.value = idx;
+      opt.textContent = `${f.form} \u2014 ${f.period_end}`;
+      sel.appendChild(opt);
+    });
+    state._filingsList = data.filings || [];
+    // Auto-select most recent
+    if (sel.options.length > 1) {
+      sel.selectedIndex = 1;
+      sel.dispatchEvent(new Event("change"));
+    }
+  } catch(err) {
+    console.warn("loadFilingsList failed:", err);
+  } finally {
+    spinner.classList.add("hidden");
+  }
+}
 
-  hideAlert("detect-error");
-  document.getElementById("detect-loading").style.display = "block";
-  document.getElementById("detect-result").style.display = "none";
-  document.getElementById("btn-auto-detect").disabled = true;
-  document.getElementById("detect-spinner").style.display = "inline-block";
+document.getElementById("filing-select").addEventListener("change", function() {
+  const idx = parseInt(this.value, 10);
+  if (isNaN(idx)) return;
+  const filing = state._filingsList[idx];
+  if (!filing || !filing.primary_document) return;
+  state.currentFiling = filing;
+  // Update EDGAR fetch info panel
+  // (html-filing-info removed)
+  loadFilingViewer(filing);
+});
+
+async function loadFilingViewer(filing) {
+  setCanvasState("loading");
+  setTxt("loading-filing-label", `${filing.form} \u2014 ${filing.period_end}`);
+  const cik = state.cik;
+  const ua  = getVal("ua-input") || "SEC Filing Platform user@example.com";
+
+  const payload = {
+    cik,
+    accession_number: filing.accession_number,
+    primary_document: filing.primary_document,
+    user_agent: ua,
+  };
 
   try {
-    const params = new URLSearchParams({ cik, user_agent: ua });
+    const resp = await fetch("/api/load-filing-stream", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      throw new Error(err.error || `HTTP ${resp.status}`);
+    }
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n\n"); buffer = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith("data: ")) continue;
+        try {
+          const event = JSON.parse(line.slice(6));
+          if (event.type === "done") {
+            state.viewerHtmlId = event.html_id;
+            document.getElementById("viewer-iframe").src = `/api/filing-html/${event.html_id}`;
+            setTxt("viewer-filing-label", `${filing.form} \u2014 ${filing.period_end}`);
+            setCanvasState("viewer");
+            // Auto-load EDGAR facts for the right sidebar
+            autoLoadEdgarFacts(filing.period_end);
+          } else if (event.type === "error") {
+            console.error("load-filing-stream error:", event.message);
+            setCanvasState("empty");
+          }
+        } catch(e) { /* skip malformed */ }
+      }
+    }
+  } catch(err) {
+    console.error("loadFilingViewer failed:", err);
+    setCanvasState("empty");
+  }
+}
+
+// "Roll Forward ↗" in viewer toolbar: populate sidebar + open Roll-Forward panel
+document.getElementById("btn-rollforward-this").addEventListener("click", () => {
+  if (state.currentFiling) {
+    const f = state.currentFiling;
+    setTxt("rf-source-label", `${f.form} \u2014 ${f.period_end}`);
+    showEl("rf-source-notice");
+    // Hide docx upload section — EDGAR HTML is the source
+    const docxSec = document.getElementById("rf-docx-section");
+    if (docxSec) docxSec.style.display = "none";
+    // Auto-detect periods if not already filled
+    if (getVal("ua-input") && getVal("cik-input") && !getVal("src-label")) {
+      autoDetectPeriods();
+    }
+  }
+  openSubAcc("rollforward");
+});
+
+// "↓ HTML" in viewer toolbar downloads the raw viewer HTML
+document.getElementById("btn-download-viewer-html").addEventListener("click", () => {
+  if (state.viewerHtmlId) window.open(`/api/download-filing-html/${state.viewerHtmlId}`, "_blank");
+});
+
+// "View Original" in done state → go back to docx preview or EDGAR viewer
+document.getElementById("btn-view-original").addEventListener("click", () => {
+  if (state.fileId) setCanvasState("uploaded");
+  else if (state.viewerHtmlId) setCanvasState("viewer");
+});
+
+// Auto-load EDGAR facts for right sidebar when a filing is selected
+async function autoLoadEdgarFacts(periodEnd) {
+  const cik = state.cik;
+  const ua  = getVal("ua-input") || "SEC Filing Platform user@example.com";
+  if (!cik || !periodEnd) return;
+  // Switch to EDGAR tab in right sidebar
+  switchRTab("edgar");
+  const comparableIso = periodEnd; // period_end is already ISO
+  try {
+    hideAlert("edgar-error"); hideAlert("edgar-success");
+    showEl("edgar-loading"); hideEl("edgar-preview-section");
+    const params = new URLSearchParams({ cik, period_end: comparableIso, user_agent: ua });
+    const resp = await fetch(`/edgar-preview?${params}`);
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.error || resp.statusText);
+    state.edgarFacts = data.facts || {};
+    renderEdgarPreview(data.facts, data.count);
+    showAlert("edgar-success", `${data.count} EDGAR facts for ${data.period_end}.`);
+    showEl("edgar-preview-section");
+  } catch(err) {
+    showAlert("edgar-error", `EDGAR facts: ${err.message}`);
+  } finally {
+    hideEl("edgar-loading");
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Auto-detect period from EDGAR
+// ─────────────────────────────────────────────────────────────────────────
+async function autoDetectPeriods() {
+  const cik      = getVal("cik-input");
+  const ua       = getVal("ua-input");
+  const formType = document.getElementById("form-type-select").value;
+  if (!ua) { showAlert("detect-error", "Enter your User-Agent first."); return; }
+  if (!cik) { showAlert("detect-error", "Enter a CIK or resolve a ticker first."); return; }
+  hideAlert("detect-error");
+  showEl("detect-loading"); hideEl("detect-result");
+  document.getElementById("btn-auto-detect").disabled = true;
+  document.getElementById("detect-spinner").style.display = "inline-block";
+  // Open periods accordion
+  const periodBody = document.querySelector("#acc-periods .acc-body");
+  const periodHeader = document.querySelector("#acc-periods .acc-header");
+  if (periodBody && !periodBody.classList.contains("open")) {
+    periodBody.classList.add("open"); periodHeader.classList.add("open");
+  }
+
+  try {
+    const params = new URLSearchParams({ cik, user_agent: ua, form_type: formType });
     const resp = await fetch(`/api/detect-period?${params}`);
     const data = await resp.json();
     if (!resp.ok) throw new Error(data.error || resp.statusText);
-
     populatePeriodFields(data.source, data.target);
-
-    // Show detection banner
-    const fi = data.filing_info || {};
-    document.getElementById("detect-summary").textContent =
-      `${fi.company_name || "Company"} — latest 10-Q period: ${fi.period_end} ` +
-      `(filed ${fi.filing_date}) | FY end: ${fi.fy_end_label}`;
-    document.getElementById("detect-result").style.display = "block";
-
-    // Show any warnings from detection (e.g. approaching annual period)
-    if (data.warnings && data.warnings.length) {
-      showAlert("period-warning", data.warnings.join(" "));
-      document.getElementById("period-warning").style.display = "block";
-    } else {
-      hideAlert("period-warning");
+    state.filingInfo = data.filing_info || null;
+    if (state.filingInfo?.primary_document) {
+      // Try to sync filing-select to the detected accession
+      const sel = document.getElementById("filing-select");
+      const acc = state.filingInfo.accession_number;
+      for (let i = 1; i < sel.options.length; i++) {
+        const f = state._filingsList[parseInt(sel.options[i].value, 10)];
+        if (f && f.accession_number === acc) {
+          sel.selectedIndex = i;
+          break;
+        }
+      }
     }
+    const fi = data.filing_info || {};
+    setTxt("detect-summary",
+      `${fi.company_name || "Company"} — latest ${fi.form || formType}: ${fi.period_end} (filed ${fi.filing_date}) | FY end: ${fi.fy_end_label}`);
+    showEl("detect-result");
+    if (data.warnings?.length) {
+      showAlert("period-warning", data.warnings.join(" "));
+    } else { hideAlert("period-warning"); }
   } catch(err) {
     showAlert("detect-error", `Auto-detect failed: ${err.message}`);
   } finally {
-    document.getElementById("detect-loading").style.display = "none";
+    hideEl("detect-loading");
     document.getElementById("btn-auto-detect").disabled = false;
     document.getElementById("detect-spinner").style.display = "none";
   }
-});
+}
+document.getElementById("btn-auto-detect").addEventListener("click", autoDetectPeriods);
 
 function populatePeriodFields(src, tgt) {
   setVal("src-label",       src.period_label);
@@ -728,140 +2122,300 @@ function populatePeriodFields(src, tgt) {
   setVal("prior-ye",        src.prior_year_end_label);
 }
 
-// EDGAR comparable-period facts preview
-document.getElementById("btn-edgar-preview").addEventListener("click", async () => {
-  const cik = getVal("cik-input");
-  const ua  = getVal("ua-input");
-  const tgtComparableEnd = labelToIso(getVal("tgt-comparable"));
-  if (!ua) { showAlert("edgar-error", "Enter User-Agent first."); return; }
-  if (!tgtComparableEnd) { showAlert("edgar-error", "Set target comparable period label first."); return; }
-
-  hideAlert("edgar-error");
-  hideAlert("edgar-success");
-  document.getElementById("edgar-loading").style.display = "block";
-  document.getElementById("edgar-preview-section").style.display = "none";
-
-  try {
-    const params = new URLSearchParams({ cik, period_end: tgtComparableEnd, user_agent: ua });
-    const resp = await fetch(`/edgar-preview?${params}`);
-    const data = await resp.json();
-    if (!resp.ok) throw new Error(data.error || resp.statusText);
-
-    renderEdgarPreview(data.facts, data.count);
-    document.getElementById("edgar-success").textContent = `Found ${data.count} facts for ${data.period_end}.`;
-    document.getElementById("edgar-success").style.display = "block";
-    document.getElementById("edgar-preview-section").style.display = "block";
-  } catch(err) {
-    showAlert("edgar-error", `EDGAR preview failed: ${err.message}`);
-  } finally {
-    document.getElementById("edgar-loading").style.display = "none";
+// ─────────────────────────────────────────────────────────────────────────
+// Generate (Roll Forward)
+// ─────────────────────────────────────────────────────────────────────────
+function validateAndBuildPayload() {
+  // In HTML mode triggerRollForward() routes to rollForwardHtml() — this path is docx only
+  if (!state.fileId) {
+    showAlert("gen-error", "Upload a .docx file first (or select a filing above to roll forward EDGAR HTML).");
+    return null;
   }
-});
-
-function renderEdgarPreview(facts, count) {
-  const grid = document.getElementById("edgar-facts-grid");
-  grid.innerHTML = "";
-  if (!count) {
-    grid.innerHTML = '<div style="color:var(--text-muted);grid-column:1/-1">No facts found for this period.</div>';
-    return;
-  }
-  Object.entries(facts).slice(0, 60).forEach(([key, val]) => {
-    const div = document.createElement("div");
-    div.className = "edgar-fact";
-    div.innerHTML = `<span class="edgar-concept">${escHtml(key)}</span><span class="edgar-val">${formatNum(val)}</span>`;
-    grid.appendChild(div);
-  });
-}
-
-document.getElementById("btn-back-1").addEventListener("click", () => showStep(1));
-
-document.getElementById("btn-to-step3").addEventListener("click", () => {
   const ua = getVal("ua-input");
-  if (!ua) { showAlert("detect-error", "Enter User-Agent before proceeding."); return; }
-  if (!getVal("src-label") || !getVal("tgt-label")) {
-    showAlert("detect-error", "Period labels are required. Use Auto-Detect or fill in manually.");
-    return;
+  if (!ua) { showAlert("gen-error", "Enter your User-Agent in B — Company."); return null; }
+  const src = readSourceConfig(); const tgt = readTargetConfig();
+  if (!src.period_label || !tgt.period_label) {
+    showAlert("gen-error", "Period labels required. Use Auto-Detect or fill manually."); return null;
   }
-  // Update Step 3 labels from config
-  const tgt = readTargetConfig();
-  const src = readSourceConfig();
-  document.getElementById("gen-tgt-label").textContent = tgt.period_label || "the target period";
-  document.getElementById("chk-tgt-label").textContent     = tgt.period_label;
-  document.getElementById("chk-prior-ye").textContent      = src.prior_year_end_label;
-  document.getElementById("chk-tgt-comparable").textContent= tgt.comparable_label;
-  document.getElementById("chk-tgt-current").textContent   = tgt.period_label;
-  document.getElementById("chk-src-label").textContent     = src.period_label;
-  showStep(3);
-});
-
-// ─────────────────────────────────────────────────────────────────────────
-// Step 3 — Generate
-// ─────────────────────────────────────────────────────────────────────────
-document.getElementById("btn-back-2").addEventListener("click", () => showStep(2));
-
-document.getElementById("btn-generate").addEventListener("click", async () => {
-  hideAlert("gen-error");
-  document.getElementById("gen-loading").style.display = "block";
-  document.getElementById("btn-generate").disabled = true;
-  document.getElementById("gen-spinner").style.display = "inline-block";
-  document.getElementById("results-card").classList.add("hidden");
-
-  const payload = {
+  // Fill in checklist labels
+  setTxt("gen-tgt-label",         tgt.period_label || "the target period");
+  setTxt("chk-tgt-label",         tgt.period_label);
+  setTxt("chk-prior-ye",          src.prior_year_end_label);
+  setTxt("chk-tgt-comparable",    tgt.comparable_label);
+  setTxt("chk-tgt-current",       tgt.period_label);
+  setTxt("chk-src-label",         src.period_label);
+  setTxt("done-subtitle",         `Generated for: ${tgt.period_label}`);
+  return {
     file_id:       state.fileId,
     cik:           getVal("cik-input"),
-    user_agent:    getVal("ua-input"),
+    user_agent:    ua,
     add_ytd:       document.getElementById("ytd-toggle").checked,
-    source_config: readSourceConfig(),
-    target_config: readTargetConfig(),
+    source_config: src,
+    target_config: tgt,
   };
+}
+
+async function triggerRollForward() {
+  hideAlert("gen-error");
+
+  // Route to HTML roll-forward when a viewer filing is loaded
+  if (state.viewerHtmlId) {
+    await rollForwardHtml();
+    return;
+  }
+
+  // Fallback: docx upload roll-forward
+  const payload = validateAndBuildPayload();
+  if (!payload) return;
+
+  ["btn-sidebar-generate","canvas-roll-btn"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.disabled = true;
+  });
+  document.getElementById("sidebar-gen-spinner").style.display = "inline-block";
+  setCanvasState("generating");
+
+  const useSSE = document.getElementById("sse-toggle").checked;
+  if (useSSE) {
+    await generateWithSSE(payload);
+  } else {
+    await generateDirect(payload);
+  }
+
+  ["btn-sidebar-generate","canvas-roll-btn"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.disabled = false;
+  });
+  document.getElementById("sidebar-gen-spinner").style.display = "none";
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// HTML Roll-Forward (no .docx — transforms the loaded EDGAR HTML session)
+// ─────────────────────────────────────────────────────────────────────────
+async function rollForwardHtml() {
+  const ua  = getVal("ua-input") || "SEC Filing Platform user@example.com";
+  const src = readSourceConfig();
+  const tgt = readTargetConfig();
+
+  if (!src.period_label || !tgt.period_label) {
+    showAlert("gen-error", "Period labels required. Use Auto-Detect in C — Periods or fill manually.");
+    return;
+  }
+
+  setTxt("gen-tgt-label", tgt.period_label || "target period");
+  document.getElementById("btn-sidebar-generate").disabled = true;
+  document.getElementById("sidebar-gen-spinner").style.display = "inline-block";
+  setCanvasState("generating");
+
+  const linesEl = document.getElementById("progress-log-lines");
+  const logEl   = document.getElementById("progress-log");
+  linesEl.innerHTML = "";
+
+  function addLine(msg, status) {
+    const d = document.createElement("div");
+    d.className = `log-line ${status}`;
+    const icon = status === "done" ? "✓" : status === "error" ? "✗" : "→";
+    d.innerHTML = `<span class="log-icon">${icon}</span><span>${escHtml(msg)}</span>`;
+    linesEl.appendChild(d);
+    logEl.scrollTop = logEl.scrollHeight;
+  }
 
   try {
-    const resp = await fetch("/rollforward", {
+    const resp = await fetch("/api/rollforward-html-stream", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        html_id:       state.viewerHtmlId,
+        cik:           getVal("cik-input"),
+        user_agent:    ua,
+        source_config: src,
+        target_config: tgt,
+      }),
+    });
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      throw new Error(err.error || `HTTP ${resp.status}`);
+    }
+
+    const reader = resp.body.getReader(); const decoder = new TextDecoder();
+    let buffer = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n\n"); buffer = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith("data: ")) continue;
+        try {
+          const ev = JSON.parse(line.slice(6));
+          if (ev.type === "progress") {
+            addLine(ev.message, "done");
+          } else if (ev.type === "done") {
+            addLine("Roll-forward complete — loading document…", "done");
+            state.rolledHtmlId = ev.html_id;
+            state.renderMode   = "html";
+
+            // Reset edit mode
+            _editModeActive = false;
+            document.getElementById("btn-toggle-edit").textContent = "\u270E Edit";
+            document.getElementById("btn-toggle-edit").classList.replace("btn-primary","btn-outline");
+            hideEl("edit-mode-badge");
+            document.getElementById("edit-toolbar").classList.remove("visible");
+            hideEl("btn-save-viewer-edits");
+
+            // Inject rolled HTML into docx-render-area as iframe
+            const area = document.getElementById("docx-render-area");
+            area.removeAttribute("contenteditable");
+            area.innerHTML =
+              `<iframe id="doc-iframe"
+                 src="/api/filing-html/${ev.html_id}"
+                 style="width:100%;height:100%;border:none;display:block"
+                 sandbox="allow-same-origin allow-scripts allow-forms"></iframe>`;
+
+            // Update canvas header
+            const filingLabel = state.currentFiling
+              ? `${state.currentFiling.form} \u2014 ${state.currentFiling.period_end}`
+              : "EDGAR Filing";
+            setTxt("canvas-filename", `${filingLabel} \u2192 ${tgt.period_label}`);
+            setTxt("canvas-doc-meta",
+              `${ev.replacements || 0} replacements \u00b7 ${ev.tables_processed || 0} tables`);
+            showEl("btn-download-rolled-html");
+            setCanvasState("uploaded");
+          } else if (ev.type === "error") {
+            addLine(ev.message, "error");
+            showAlert("gen-error", `Roll-forward failed: ${ev.message}`);
+            setCanvasState(state.viewerHtmlId ? "viewer" : "empty");
+          }
+        } catch(e) { /* skip malformed */ }
+      }
+    }
+  } catch(err) {
+    showAlert("gen-error", `Roll-forward failed: ${err.message}`);
+    setCanvasState(state.viewerHtmlId ? "viewer" : "empty");
+  } finally {
+    document.getElementById("btn-sidebar-generate").disabled = false;
+    document.getElementById("sidebar-gen-spinner").style.display = "none";
+  }
+}
+
+document.getElementById("btn-sidebar-generate").addEventListener("click", triggerRollForward);
+// "Roll Forward ↗" in docx preview toolbar opens the roll-forward panel
+document.getElementById("canvas-roll-btn").addEventListener("click", () => {
+  openSubAcc("rollforward");
+});
+
+// SSE-based generation
+async function generateWithSSE(payload) {
+  const logEl   = document.getElementById("progress-log");
+  const linesEl = document.getElementById("progress-log-lines");
+  linesEl.innerHTML = "";
+
+  function addLogLine(msg, status) {
+    const div = document.createElement("div");
+    div.className = `log-line ${status}`;
+    const icon = status === "done" ? "✓" : status === "error" ? "✗" : "→";
+    div.innerHTML = `<span class="log-icon">${icon}</span><span>${escHtml(msg)}</span>`;
+    linesEl.appendChild(div);
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+
+  try {
+    const resp = await fetch("/rollforward-stream", {
+      method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
     if (!resp.ok) {
-      const errData = await resp.json().catch(() => ({}));
-      throw new Error(errData.error || `HTTP ${resp.status}`);
+      const err = await resp.json().catch(() => ({}));
+      throw new Error(err.error || `HTTP ${resp.status}`);
     }
+    const reader = resp.body.getReader(); const decoder = new TextDecoder();
+    let buffer = ""; let jobId = null; let stats = null;
 
-    const blob = await resp.blob();
-    const cd   = resp.headers.get("Content-Disposition") || "";
-    const fnMatch = cd.match(/filename[^;=\n]*=(["']?)([^"'\n]*)\1/);
-    const filename = fnMatch ? fnMatch[2] : `Form_10-Q_${payload.target_config.period_label || "draft"}.docx`;
-
-    state.lastOutputBlob = blob;
-    state.lastOutputFilename = filename;
-    triggerDownload(blob, filename);
-
-    renderResults(null);
-    document.getElementById("results-card").classList.remove("hidden");
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n\n"); buffer = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith("data: ")) continue;
+        try {
+          const event = JSON.parse(line.slice(6));
+          if (event.type === "progress") {
+            addLogLine(event.message, "done");
+          } else if (event.type === "done") {
+            addLogLine("Done — document ready", "done");
+            jobId = event.job_id; stats = event.stats;
+            state.lastJobId = jobId; state.lastStats = stats;
+            // Auto-download
+            const dlResp = await fetch(`/download/${jobId}`);
+            const blob = await dlResp.blob();
+            const fname = `Form_10-Q_${payload.target_config?.period_label||"draft"}.docx`;
+            state.lastOutputFilename = fname;
+            triggerDownload(blob, fname);
+            renderResults(stats);
+            setCanvasState("done");
+            if (stats?.table_detection) {
+              state.tableDetection = stats.table_detection;
+              renderTableMap(state.tableMap || [], stats.table_detection);
+            }
+          } else if (event.type === "error") {
+            addLogLine(event.message, "error");
+            showAlert("gen-error", `Generation failed: ${event.message}`);
+            setCanvasState(state.fileId ? "uploaded" : state.viewerHtmlId ? "viewer" : "empty");
+          }
+        } catch(e) { /* skip malformed */ }
+      }
+    }
   } catch(err) {
     showAlert("gen-error", `Generation failed: ${err.message}`);
-  } finally {
-    document.getElementById("gen-loading").style.display = "none";
-    document.getElementById("btn-generate").disabled = false;
-    document.getElementById("gen-spinner").style.display = "none";
+    setCanvasState(state.fileId ? "uploaded" : state.viewerHtmlId ? "viewer" : "empty");
   }
-});
+}
 
+// Direct generation (no SSE)
+async function generateDirect(payload) {
+  try {
+    const resp = await fetch("/rollforward", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!resp.ok) { const e = await resp.json().catch(()=>({})); throw new Error(e.error||`HTTP ${resp.status}`); }
+    const blob = await resp.blob();
+    const cd = resp.headers.get("Content-Disposition") || "";
+    const fnMatch = cd.match(/filename[^;=\n]*=(["']?)([^"'\n]*)\1/);
+    const filename = fnMatch ? fnMatch[2] : `Form_10-Q_${payload.target_config.period_label||"draft"}.docx`;
+    state.lastOutputBlob = blob; state.lastOutputFilename = filename;
+    triggerDownload(blob, filename);
+    let stats = null;
+    try { stats = JSON.parse(resp.headers.get("X-Rollforward-Stats") || "null"); } catch(e) {}
+    state.lastStats = stats;
+    renderResults(stats);
+    setCanvasState("done");
+  } catch(err) {
+    showAlert("gen-error", `Generation failed: ${err.message}`);
+    setCanvasState(state.fileId ? "uploaded" : state.viewerHtmlId ? "viewer" : "empty");
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Render results (preserved logic)
+// ─────────────────────────────────────────────────────────────────────────
 function renderResults(stats) {
   const statGrid = document.getElementById("stat-grid");
   if (stats) {
     statGrid.innerHTML = `
       <div class="stat-box"><div class="stat-num">${stats.replacements_made ?? "—"}</div><div class="stat-lbl">Text replacements</div></div>
       <div class="stat-box"><div class="stat-num">${stats.tables_processed ?? "—"}</div><div class="stat-lbl">Tables processed</div></div>
-      <div class="stat-box"><div class="stat-num">${stats.edgar_facts_found ?? "—"}</div><div class="stat-lbl">EDGAR facts inserted</div></div>
-      <div class="stat-box"><div class="stat-num">${(stats.edgar_facts_missing||[]).length}</div><div class="stat-lbl">EDGAR facts missing</div></div>`;
+      <div class="stat-box"><div class="stat-num">${stats.edgar_facts_found ?? "—"}</div><div class="stat-lbl">EDGAR facts</div></div>
+      <div class="stat-box"><div class="stat-num">${(stats.edgar_facts_missing||[]).length}</div><div class="stat-lbl">Facts missing</div></div>`;
   } else {
     statGrid.innerHTML = `<div class="stat-box" style="grid-column:1/-1">
-      <div style="font-size:0.85rem;color:var(--success)">&#10003; Document generated successfully. Download started.</div></div>`;
+      <div style="font-size:0.85rem;color:var(--success)">&#10003; Document generated. Download started.</div></div>`;
   }
 
-  const vRow = document.getElementById("v-row");
-  vRow.innerHTML = "";
-  if (stats && stats.verification) {
+  const vRow = document.getElementById("v-row"); vRow.innerHTML = "";
+  if (stats?.verification) {
     const v = stats.verification;
     [
       [v.no_source_dates_remain,        "No source dates remain"],
@@ -873,36 +2427,389 @@ function renderResults(stats) {
       b.textContent = (pass ? "✓ " : "✗ ") + label;
       vRow.appendChild(b);
     });
-    const missing = document.getElementById("missing-list");
-    missing.innerHTML = "";
+    const missingEl = document.getElementById("missing-list"); missingEl.innerHTML = "";
     [...new Set(stats.edgar_facts_missing||[])].forEach(m => {
-      const d = document.createElement("div"); d.textContent = "⚠ " + m; missing.appendChild(d);
+      const d = document.createElement("div"); d.textContent = "⚠ " + m; missingEl.appendChild(d);
     });
-    const warns = document.getElementById("warn-list");
-    warns.innerHTML = "";
+    const warnEl = document.getElementById("warn-list"); warnEl.innerHTML = "";
     (stats.warnings||[]).forEach(w => {
-      const d = document.createElement("div"); d.textContent = w; warns.appendChild(d);
+      const d = document.createElement("div"); d.textContent = w; warnEl.appendChild(d);
     });
   } else {
-    const b = document.createElement("span");
-    b.className = "vbadge warn";
-    b.textContent = "⚠ Review output manually against the checklist below";
-    vRow.appendChild(b);
+    const b = document.createElement("span"); b.className = "vbadge warn";
+    b.textContent = "⚠ Review output manually"; vRow.appendChild(b);
+  }
+
+  const changes = stats?.changes || [];
+  if (changes.length) {
+    const panel = document.getElementById("changes-panel");
+    panel.classList.remove("hidden");
+    setTxt("changes-count-badge", `${changes.length} changes`);
+    renderChanges(changes, null);
   }
 }
 
-document.getElementById("btn-download-again").addEventListener("click", () => {
-  if (state.lastOutputBlob) triggerDownload(state.lastOutputBlob, state.lastOutputFilename);
+function renderChanges(changes, filterType) {
+  const list = document.getElementById("changes-list"); list.innerHTML = "";
+  const filtered = filterType ? changes.filter(c => c.type === filterType) : changes;
+  filtered.forEach(c => {
+    const div = document.createElement("div"); div.className = "change-item";
+    const typeLabel = {text_replacement:"Text",table_blanked:"Table",edgar_inserted:"EDGAR"}[c.type] || c.type;
+    div.innerHTML = `<span class="change-type ${c.type}">${escHtml(typeLabel)}</span>
+                     <span class="change-detail">${escHtml(c.table ? c.table + ": " : "")}${escHtml(c.detail || "")}</span>`;
+    list.appendChild(div);
+  });
+  const filterRow = document.getElementById("filter-row"); filterRow.innerHTML = "";
+  const types = [...new Set(changes.map(c => c.type))];
+  const allBtn = document.createElement("button");
+  allBtn.className = `filter-btn ${!filterType ? "active" : ""}`;
+  allBtn.textContent = `All (${changes.length})`;
+  allBtn.onclick = () => renderChanges(changes, null);
+  filterRow.appendChild(allBtn);
+  types.forEach(t => {
+    const btn = document.createElement("button");
+    btn.className = `filter-btn ${filterType === t ? "active" : ""}`;
+    btn.textContent = `${t} (${changes.filter(c=>c.type===t).length})`;
+    btn.onclick = () => renderChanges(changes, t);
+    filterRow.appendChild(btn);
+  });
+}
+document.getElementById("changes-toggle").addEventListener("click", () => {
+  document.getElementById("changes-body").classList.toggle("hidden");
+});
+
+document.getElementById("btn-download-docx").addEventListener("click", () => {
+  if (state.lastJobId) {
+    fetch(`/download/${state.lastJobId}`).then(r => r.blob()).then(b =>
+      triggerDownload(b, state.lastOutputFilename || "Form_10-Q_draft.docx"));
+  } else if (state.lastOutputBlob) {
+    triggerDownload(state.lastOutputBlob, state.lastOutputFilename);
+  }
+});
+
+document.getElementById("btn-download-job-html").addEventListener("click", () => {
+  if (state.lastJobId) window.open(`/api/download-job-html/${state.lastJobId}`, "_blank");
+});
+
+document.getElementById("btn-download-job-pdf").addEventListener("click", () => {
+  if (state.lastJobId) window.open(`/api/download-job-pdf/${state.lastJobId}`, "_blank");
 });
 
 document.getElementById("btn-restart").addEventListener("click", () => {
-  state = { fileId:null, filename:null, tableMap:null, lastOutputBlob:null, lastOutputFilename:null };
+  Object.assign(state, {
+    fileId:null, filename:null, tableMap:null, tableDetection:{},
+    lastOutputBlob:null, lastOutputFilename:null, lastJobId:null,
+    lastStats:null, edgarFacts:{}, highlightedParas:[], chatHistory:[],
+    currentSidebarSection:null, htmlId:null, filingInfo:null
+  });
   document.getElementById("file-input").value = "";
-  document.getElementById("table-map-card").classList.add("hidden");
-  hideAlert("upload-error"); hideAlert("upload-success");
-  document.getElementById("results-card").classList.add("hidden");
-  showStep(1);
+  _editModeActive = false;
+  hideAlert("upload-error"); hideAlert("upload-success"); hideAlert("gen-error");
+  hideEl("changes-panel");
+  hideEl("mda-drawer");
+  // Return to docx preview or EDGAR viewer if available, otherwise empty
+  if (state.fileId) setCanvasState("uploaded");
+  else if (state.viewerHtmlId) setCanvasState("viewer");
+  else setCanvasState("empty");
 });
+
+document.getElementById("btn-to-step4").addEventListener("click", () => {
+  setVal("step4-api-key", getApiKey());
+  showEl("mda-drawer");
+  document.getElementById("mda-drawer").scrollIntoView({ behavior: "smooth" });
+});
+document.getElementById("btn-back-3").addEventListener("click", () => {
+  hideEl("mda-drawer");
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// EDGAR preview (in right sidebar tab 3)
+// ─────────────────────────────────────────────────────────────────────────
+document.getElementById("btn-edgar-preview").addEventListener("click", async () => {
+  const cik = getVal("cik-input"); const ua = getVal("ua-input");
+  const tgtComparableEnd = labelToIso(getVal("tgt-comparable"));
+  if (!ua) { showAlert("edgar-error", "Enter User-Agent in B — Company first."); return; }
+  if (!tgtComparableEnd) { showAlert("edgar-error", "Set target comparable period first (C — Periods)."); return; }
+  hideAlert("edgar-error"); hideAlert("edgar-success");
+  showEl("edgar-loading"); hideEl("edgar-preview-section");
+
+  try {
+    const params = new URLSearchParams({ cik, period_end: tgtComparableEnd, user_agent: ua });
+    const resp = await fetch(`/edgar-preview?${params}`);
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.error || resp.statusText);
+    state.edgarFacts = data.facts || {};
+    renderEdgarPreview(data.facts, data.count);
+    showAlert("edgar-success", `Found ${data.count} facts for ${data.period_end}.`);
+    showEl("edgar-preview-section");
+  } catch(err) {
+    showAlert("edgar-error", `EDGAR preview failed: ${err.message}`);
+  } finally { hideEl("edgar-loading"); }
+});
+
+function renderEdgarPreview(facts, count) {
+  const grid = document.getElementById("edgar-facts-grid"); grid.innerHTML = "";
+  if (!count) { grid.innerHTML = '<div style="color:var(--text-muted);grid-column:1/-1;font-size:0.78rem">No facts found.</div>'; return; }
+  Object.entries(facts).slice(0, 60).forEach(([key, val]) => {
+    const div = document.createElement("div"); div.className = "edgar-fact";
+    div.innerHTML = `<span class="edgar-concept">${escHtml(key)}</span><span class="edgar-val">${formatNum(val)}</span>`;
+    grid.appendChild(div);
+  });
+}
+
+// setMode kept as no-op for compatibility
+function setMode(mode) { state.mode = mode; }
+
+// ─────────────────────────────────────────────────────────────────────────
+// AI MD&A Review
+// ─────────────────────────────────────────────────────────────────────────
+document.getElementById("btn-get-suggestions").addEventListener("click", async () => {
+  const apiKey = getApiKey();
+  if (!apiKey) { showAlert("suggest-error", "Enter your Anthropic API key in D — Options."); return; }
+  hideAlert("suggest-error"); hideEl("suggest-no-paras");
+  const paragraphs = state.highlightedParas;
+  if (!paragraphs || !paragraphs.length) {
+    showEl("suggest-no-paras"); return;
+  }
+  document.getElementById("suggest-spinner").style.display = "inline-block";
+  document.getElementById("btn-get-suggestions").disabled = true;
+  showEl("suggest-loading");
+  document.getElementById("suggestion-list").innerHTML = "";
+
+  try {
+    const resp = await fetch("/api/ai/mda-suggestions", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        paragraphs, source_config: readSourceConfig(),
+        target_config: readTargetConfig(), edgar_facts: state.edgarFacts, api_key: apiKey,
+      }),
+    });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.error || resp.statusText);
+    renderSuggestions(data.suggestions || []);
+  } catch(err) {
+    showAlert("suggest-error", `AI suggestions failed: ${err.message}`);
+  } finally {
+    document.getElementById("suggest-spinner").style.display = "none";
+    document.getElementById("btn-get-suggestions").disabled = false;
+    hideEl("suggest-loading");
+  }
+});
+
+function renderSuggestions(suggestions) {
+  const list = document.getElementById("suggestion-list"); list.innerHTML = "";
+  if (!suggestions.length) {
+    list.innerHTML = '<div style="color:var(--text-muted);font-size:0.82rem">No suggestions generated.</div>';
+    return;
+  }
+  suggestions.forEach((s, i) => {
+    const card = document.createElement("div"); card.className = "suggestion-card";
+    card.id = `sugg-card-${i}`;
+    const confClass = s.confidence || "medium";
+    card.innerHTML = `
+      <div class="suggestion-header">
+        <span>Paragraph ${i+1} (doc index: ${s.index})</span>
+        <span class="confidence-badge ${confClass}">${confClass} confidence</span>
+      </div>
+      <div class="suggestion-cols">
+        <div class="suggestion-col">
+          <div class="suggestion-col-header">Original</div>
+          <div style="color:var(--text-muted);font-size:0.78rem;line-height:1.5">${escHtml(s.original)}</div>
+        </div>
+        <div class="suggestion-col">
+          <div class="suggestion-col-header">AI Suggestion (editable)</div>
+          <textarea id="sugg-text-${i}">${escHtml(s.suggestion || s.original)}</textarea>
+        </div>
+      </div>
+      <div class="suggestion-actions">
+        <button class="btn btn-sm btn-primary" onclick="acceptSuggestion(${i})">&#10003; Accept</button>
+        <button class="btn btn-sm btn-outline" onclick="rejectSuggestion(${i})">&#10005; Reject</button>
+      </div>`;
+    list.appendChild(card);
+  });
+}
+function acceptSuggestion(i) {
+  const c = document.getElementById(`sugg-card-${i}`);
+  c.classList.add("accepted"); c.classList.remove("rejected");
+}
+function rejectSuggestion(i) {
+  const c = document.getElementById(`sugg-card-${i}`);
+  c.classList.add("rejected"); c.classList.remove("accepted");
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Compliance citations (right sidebar tab 1)
+// ─────────────────────────────────────────────────────────────────────────
+function openSidebarSection(section) {
+  state.currentSidebarSection = section;
+  document.querySelectorAll(".sidebar-tab").forEach(t => {
+    t.classList.toggle("active", t.dataset.section === section);
+  });
+  loadSidebarCitations(section);
+  switchRTab("regulatory");
+}
+document.querySelectorAll(".sidebar-tab").forEach(tab => {
+  tab.addEventListener("click", () => openSidebarSection(tab.dataset.section));
+});
+
+async function loadSidebarCitations(section) {
+  const citEl = document.getElementById("sidebar-citations");
+  citEl.innerHTML = '<div style="color:var(--text-muted);font-size:0.78rem">Loading&hellip;</div>';
+  hideEl("sidebar-rationale");
+  try {
+    const resp = await fetch("/api/compliance/explain", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ section_type: section, context: "", api_key: getApiKey() }),
+    });
+    const data = await resp.json();
+    if (!resp.ok) { renderSidebarFallback(section, citEl); return; }
+    citEl.innerHTML = "";
+    (data.citations || []).forEach(c => {
+      const card = document.createElement("div"); card.className = "citation-card";
+      card.innerHTML = `<div class="citation-source">${escHtml(c.source_name || c.source_id || "Source")}</div>
+        <div class="citation-excerpt">${escHtml((c.text_excerpt || c.text || "").slice(0,200))}${(c.text_excerpt||"").length>200?"…":""}</div>`;
+      citEl.appendChild(card);
+    });
+    if (!data.citations?.length) renderSidebarFallback(section, citEl);
+    if (data.rationale) {
+      const rat = document.getElementById("sidebar-rationale");
+      rat.textContent = data.rationale; showEl("sidebar-rationale");
+    }
+    (data.standards||[]).forEach(std => {
+      const chip = document.createElement("div");
+      chip.style.cssText = "font-size:0.7rem;color:var(--accent);padding:0.1rem 0";
+      chip.textContent = std; citEl.appendChild(chip);
+    });
+  } catch(err) { renderSidebarFallback(section, citEl); }
+}
+
+const SECTION_STANDARDS = {
+  balance_sheet:    ["Reg S-X Article 10 §10-01","ASC 210","ASC 470"],
+  income_statement: ["Reg S-X §10-02","ASC 220","ASC 270"],
+  cash_flow:        ["ASC 230","Reg S-X §10-04"],
+  mda:              ["Reg S-K Item 303"],
+  eps:              ["ASC 260","Reg S-X §10-02"],
+  notes:            ["ASC 270","Reg S-X Article 10"],
+};
+function renderSidebarFallback(section, el) {
+  el.innerHTML = "";
+  const stds = SECTION_STANDARDS[section] || [];
+  if (!stds.length) {
+    el.innerHTML = '<div style="color:var(--text-muted);font-size:0.78rem">No standards found.</div>';
+    return;
+  }
+  const intro = document.createElement("div");
+  intro.style.cssText = "font-size:0.75rem;color:var(--text-muted);margin-bottom:0.4rem";
+  intro.textContent = "Applicable standards:";
+  el.appendChild(intro);
+  stds.forEach(std => {
+    const card = document.createElement("div"); card.className = "citation-card";
+    card.innerHTML = `<div class="citation-source">${escHtml(std)}</div>`;
+    el.appendChild(card);
+  });
+}
+document.getElementById("btn-sidebar-explain").addEventListener("click", async () => {
+  const section = state.currentSidebarSection;
+  if (!section) return;
+  const apiKey = getApiKey();
+  if (!apiKey) { alert("Enter your Anthropic API key in D — Options to use AI explanations."); return; }
+  const rat = document.getElementById("sidebar-rationale");
+  rat.textContent = "Generating explanation…"; showEl("sidebar-rationale");
+  try {
+    const resp = await fetch("/api/compliance/explain", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ section_type: section, context: getVal("tgt-label"), api_key: apiKey }),
+    });
+    const data = await resp.json();
+    rat.textContent = data.rationale || data.error || "No explanation returned.";
+  } catch(err) { rat.textContent = `Error: ${err.message}`; }
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// Compliance chatbot (right sidebar tab 2)
+// ─────────────────────────────────────────────────────────────────────────
+document.getElementById("btn-clear-chat").addEventListener("click", () => {
+  state.chatHistory = [];
+  const messages = document.getElementById("chat-messages");
+  messages.innerHTML = "";
+  const emptyEl = document.getElementById("chat-empty");
+  if (!emptyEl.parentElement) messages.appendChild(emptyEl);
+  showEl("chat-empty");
+});
+document.getElementById("chat-input").addEventListener("keydown", e => {
+  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendChatMessage(); }
+});
+document.getElementById("chat-send").addEventListener("click", sendChatMessage);
+
+async function sendChatMessage() {
+  const input = document.getElementById("chat-input");
+  const query = input.value.trim();
+  if (!query) return;
+  const apiKey = getVal("chat-api-key") || getVal("anthropic-key-input");
+  if (!apiKey) {
+    appendChatMsg("assistant", "Please enter your Anthropic API key in the field below.");
+    return;
+  }
+  appendChatMsg("user", query);
+  input.value = "";
+  document.getElementById("chat-send").disabled = true;
+  document.getElementById("chat-empty").style.display = "none";
+  const thinkingDiv = appendChatMsg("assistant", "…");
+  let responseText = "";
+  try {
+    const resp = await fetch("/api/compliance/chat", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query, chat_history: state.chatHistory, api_key: apiKey }),
+    });
+    if (!resp.ok) { const e = await resp.json().catch(()=>({})); throw new Error(e.error||resp.statusText); }
+    const reader = resp.body.getReader(); const decoder = new TextDecoder();
+    let buffer = ""; let citations = [];
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n\n"); buffer = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith("data: ")) continue;
+        try {
+          const event = JSON.parse(line.slice(6));
+          if (event.type === "chunk") {
+            responseText += event.text;
+            thinkingDiv.querySelector(".chat-bubble-msg").textContent = responseText;
+          } else if (event.type === "done") {
+            citations = event.citations || [];
+          }
+        } catch(e) {}
+      }
+    }
+    if (citations.length) {
+      const chipRow = document.createElement("div"); chipRow.className = "chat-citations";
+      citations.forEach(c => {
+        const chip = document.createElement("span"); chip.className = "chat-citation-chip";
+        chip.textContent = c; chipRow.appendChild(chip);
+      });
+      thinkingDiv.appendChild(chipRow);
+    }
+    state.chatHistory.push({ role:"user", content:query });
+    state.chatHistory.push({ role:"assistant", content:responseText });
+    if (state.chatHistory.length > 20) state.chatHistory = state.chatHistory.slice(-20);
+  } catch(err) {
+    thinkingDiv.querySelector(".chat-bubble-msg").textContent = `Error: ${err.message}`;
+    thinkingDiv.querySelector(".chat-bubble-msg").style.color = "var(--danger)";
+  } finally {
+    document.getElementById("chat-send").disabled = false;
+  }
+}
+function appendChatMsg(role, text) {
+  const messages = document.getElementById("chat-messages");
+  const wrapper = document.createElement("div"); wrapper.className = `chat-msg ${role}`;
+  const bubble  = document.createElement("div"); bubble.className = "chat-bubble-msg";
+  bubble.textContent = text;
+  wrapper.appendChild(bubble);
+  messages.appendChild(wrapper);
+  messages.scrollTop = messages.scrollHeight;
+  return wrapper;
+}
 </script>
 </body>
 </html>
